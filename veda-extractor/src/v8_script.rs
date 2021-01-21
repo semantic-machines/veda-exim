@@ -112,12 +112,19 @@ fn prepare_out_obj(ov: &mut Vec<OutValue>, res: Local<Value>, scope: &mut Contex
             let t0 = out_obj.get(scope, k0).unwrap();
             let target = v8_2_str(scope, &t0);
 
-            let mut ri = Individual::default();
-            v8obj_into_individual(scope, out_obj, &mut ri);
-            ov.push(OutValue {
-                target,
-                indv: Some(ri),
-            });
+            let idx1 = v8::Integer::new(scope, 1);
+            let k1 = j_predicates.get(scope, idx1.into()).unwrap();
+            let t1 = out_obj.get(scope, k1).unwrap();
+
+            if let Some(o) = t1.to_object(scope) {
+                let mut ri = Individual::default();
+                v8obj_into_individual(scope, o, &mut ri);
+
+                ov.push(OutValue {
+                    target,
+                    indv: Some(ri),
+                });
+            }
         }
     }
 }

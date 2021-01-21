@@ -44,7 +44,7 @@ pub struct Context<'a> {
 
 fn main() -> Result<(), i32> {
     init_log("EXTRACTOR");
-    thread::spawn(move || inproc_storage_manager(get_storage_init_param()));
+    thread::spawn(move || inproc_storage_manager());
 
     let mut js_runtime = JsRuntime::new();
     listen_queue(&mut js_runtime)
