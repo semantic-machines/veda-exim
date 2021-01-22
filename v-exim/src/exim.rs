@@ -80,13 +80,14 @@ impl ExImCode {
     }
 }
 
-pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configuration, node_id: &str) -> ExImCode {
+pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configuration, node_id: &str) -> (i32, ExImCode) {
     let mut size_batch = 0;
+    let mut count_sent = 0;
 
     // read queue current part info
     if let Err(e) = queue_consumer.queue.get_info_of_part(queue_consumer.id, true) {
         error!("get_info_of_part {}: {}", queue_consumer.id, e.as_str());
-        return ExImCode::InvalidMessage;
+        return (count_sent, ExImCode::InvalidMessage);
     }
 
     if queue_consumer.queue.count_pushed - queue_consumer.count_popped == 0 {
@@ -137,9 +138,10 @@ pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configurat
                             error!("fail send export message, err={:?}, attempt_count={}", e, attempt_count);
 
                             if attempt_count == 10 {
-                                return ExImCode::SendFailed;
+                                return (count_sent, ExImCode::SendFailed);
                             }
                         } else {
+                            count_sent += 1;
                             break;
                         }
                     }
@@ -148,7 +150,7 @@ pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configurat
                             break;
                         }
                         error!("fail create export message, err={:?}", e);
-                        return ExImCode::InvalidMessage;
+                        return (count_sent, ExImCode::InvalidMessage);
                     }
                 }
 
@@ -162,7 +164,7 @@ pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configurat
             }
         }
     }
-    return ExImCode::Ok;
+    return (count_sent, ExImCode::Ok);
 }
 
 pub fn create_export_message(queue_element: &mut Individual, node_id: &str) -> Result<Individual, ExImCode> {

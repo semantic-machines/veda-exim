@@ -45,6 +45,8 @@ fn main() -> std::io::Result<()> {
 
     load_linked_nodes(&mut module, &mut node_upd_counter, &mut link_node_addresses);
 
+    let mut sleep_time = 1000;
+
     loop {
         for (remote_node_id, remote_node_addr) in &link_node_addresses {
             let consumer_name = format!("i_{}", remote_node_id.replace(":", "_"));
@@ -52,7 +54,11 @@ fn main() -> std::io::Result<()> {
                 let exim_resp_api = Configuration::new(remote_node_addr, "", "");
 
                 info!("send changes to node {}", consumer_name);
-                send_changes_to_node(&mut queue_consumer, &exim_resp_api, remote_node_id);
+                let (count_sent, _res) = send_changes_to_node(&mut queue_consumer, &exim_resp_api, remote_node_id);
+
+                if count_sent > 0 {
+                    sleep_time = 1000;
+                }
 
                 // request changes from slave node
                 info!("request changes form node {}", consumer_name);
@@ -63,6 +69,7 @@ fn main() -> std::io::Result<()> {
                             if res.res_code != ExImCode::Ok {
                                 error!("fail accept changes, uri={}, err={:?}", res.id, res.res_code);
                             } else {
+                                sleep_time = 1000;
                                 info!("get {} form node {}", recv_indv.get_id(), consumer_name);
                             }
                         }
@@ -72,6 +79,10 @@ fn main() -> std::io::Result<()> {
                 }
             }
         }
-        thread::sleep(time::Duration::from_millis(5000));
+        thread::sleep(time::Duration::from_millis(sleep_time));
+
+        if sleep_time < 30000 {
+            sleep_time += 1000;
+        }
     }
 }
