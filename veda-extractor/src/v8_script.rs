@@ -1,6 +1,7 @@
 use crate::Context;
 use rusty_v8 as v8;
 use rusty_v8::{ContextScope, HandleScope, Local, Value};
+use std::collections::HashSet;
 use std::sync::Mutex;
 use v_api::app::ResultCode;
 use v_ft_xapian::xapian_reader::XapianReader;
@@ -36,7 +37,7 @@ pub fn is_exportable(_module: &mut Module, ctx: &mut Context, prev_state_indv: O
 
     new_state_indv.parse_all();
 
-    let rdf_types = new_state_indv.get_literals("rdf:type").unwrap_or_default();
+    let mut rdf_types = new_state_indv.get_literals("rdf:type").unwrap_or_default();
 
     let mut session_data = CallbackSharedData::default();
 
@@ -50,7 +51,15 @@ pub fn is_exportable(_module: &mut Module, ctx: &mut Context, prev_state_indv: O
     } else {
         session_data.g_key2attr.insert("$user".to_owned(), "cfg:VedaSystem".to_owned());
     }
-    session_data.set_g_super_classes(&rdf_types, &ctx.onto);
+    //session_data.set_g_super_classes(&rdf_types, &ctx.onto);
+
+    let mut super_classes = HashSet::new();
+    for indv_type in rdf_types.iter() {
+        ctx.onto.get_supers(indv_type, &mut super_classes);
+    }
+    for el in super_classes {
+        rdf_types.push(el);
+    }
 
     let mut sh_g_vars = G_VARS.lock().unwrap();
     let g_vars = sh_g_vars.get_mut();

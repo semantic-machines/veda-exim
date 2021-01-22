@@ -313,7 +313,12 @@ pub fn processing_imported_message(my_node_id: &str, recv_indv: &mut Individual,
         let mut indv = Individual::new_raw(RawObj::new(new_state.unwrap_or_default()));
         if parse_raw(&mut indv).is_ok() {
             indv.parse_all();
-            indv.add_uri("sys:source", &source_veda);
+
+            if indv.any_exists("sys:source", &[my_node_id]) {
+                indv.remove("sys:source");
+            } else {
+                indv.add_uri("sys:source", &source_veda);
+            }
 
             let res = veda_api.update(systicket, cmd, &indv);
 

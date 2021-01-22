@@ -91,6 +91,9 @@ fn export_delta(remote_node_id: String, _in_ctx: State<Mutex<Context>>) -> Optio
         error!("get_info_of_part {}: {}", queue_consumer.id, e.as_str());
     }
 
+    let size = queue_consumer.get_batch_size();
+    info!("part: {}, elements: {}", queue_consumer.id, size);
+
     // пробуем взять из очереди заголовок сообщения
     if queue_consumer.pop_header() {
         let mut raw = RawObj::new(vec![0; (queue_consumer.header.msg_length) as usize]);
@@ -113,6 +116,8 @@ fn export_delta(remote_node_id: String, _in_ctx: State<Mutex<Context>>) -> Optio
                 Err(e) => {
                     if e != ExImCode::Ok {
                         error!("fail create out message {:?}", e);
+                    } else {
+                        queue_consumer.commit_and_next();
                     }
                 }
             }
