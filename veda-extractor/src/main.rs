@@ -10,7 +10,7 @@ extern crate log;
 extern crate lazy_static;
 
 use crate::v8_script::{is_exportable, load_exim_filter_scripts};
-use std::{env, thread, time};
+use std::{env, fs, thread, time};
 use v_api::app::ResultCode;
 use v_api::IndvOp;
 use v_exim::*;
@@ -171,21 +171,28 @@ fn prepare_indv(
     date: i64,
     msg_id: &str,
 ) -> Result<bool, PrepareError> {
-    let mut exportable = is_exportable(module, ctx, prev_state, new_state, user_id);
-    if exportable.is_empty() {
+    let mut export_list = is_exportable(module, ctx, prev_state, new_state, user_id);
+    if export_list.is_empty() {
         return Ok(true);
     }
 
-    for el in exportable.iter_mut() {
-        let res = if let Some(i) = &mut el.indv {
-            add_to_queue(&mut ctx.queue_out, cmd.clone(), i, msg_id, &ctx.db_id, &el.target, date)
-        } else {
-            add_to_queue(&mut ctx.queue_out, cmd.clone(), new_state, msg_id, &ctx.db_id, &el.target, date)
-        };
+    for el in export_list.iter_mut() {
+        if let Some(indv) = &mut el.indv {
+            if indv.any_exists("rdf:type", &["v-s:File"]) {
+                let src_full_path = "data/files".to_owned()
+                    + &indv.get_first_literal("v-s:filePath").unwrap_or_default()
+                    + "/"
+                    + &indv.get_first_literal("v-s:fileUri").unwrap_or_default();
 
-        if let Err(e) = res {
-            error!("fail prepare message, err={:?}", e);
-            return Err(PrepareError::Fatal);
+                if let Ok(f) = fs::read(src_full_path) {
+                    indv.add_binary("v-s:fileData", f);
+                }
+            }
+            let res = add_to_queue(&mut ctx.queue_out, cmd.clone(), indv, msg_id, &ctx.db_id, &el.target, date);
+            if let Err(e) = res {
+                error!("fail prepare message, err={:?}", e);
+                return Err(PrepareError::Fatal);
+            }
         }
     }
 

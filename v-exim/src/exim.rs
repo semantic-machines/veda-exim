@@ -6,6 +6,8 @@ extern crate base64;
 
 pub mod configuration;
 
+use std::fs::File;
+use std::io::Write;
 use crate::configuration::Configuration;
 use base64::{decode, encode};
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -320,6 +322,32 @@ pub fn processing_imported_message(my_node_id: &str, recv_indv: &mut Individual,
                 indv.remove("sys:source");
             } else {
                 indv.add_uri("sys:source", &source_veda);
+            }
+
+            if indv.any_exists("rdf:type", &["v-s:File"]) {
+                if let Some (file_data) = indv.get_first_binobj("v-s:fileData") {
+
+                    let src_full_path = "data/files".to_owned()
+                        + &indv.get_first_literal("v-s:filePath").unwrap_or_default()
+                        + "/"
+                        + &indv.get_first_literal("v-s:fileUri").unwrap_or_default();
+
+                        match File::create(src_full_path.clone()) {
+                            Ok (mut ofile) => {
+                                if let Err (e) = ofile.write_all(&file_data) {
+                                    error! ("fail write file: {:?}", e);
+                                } else {
+                                    info! ("success create file {}", src_full_path);
+                                }
+                            },
+                            Err (e) => {
+                                error! ("fail create file: {:?}", e);
+                            }
+                        }
+
+                    indv.remove("v-s:fileData");
+                }
+
             }
 
             let res = veda_api.update(systicket, cmd, &indv);
