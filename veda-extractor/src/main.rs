@@ -193,6 +193,12 @@ fn prepare_indv(
                 error!("fail prepare message, err={:?}", e);
                 return Err(PrepareError::Fatal);
             }
+        } else {
+            let res = add_to_queue(&mut ctx.queue_out, cmd.clone(), new_state, msg_id, &ctx.db_id, &el.target, date);
+            if let Err(e) = res {
+                error!("fail prepare message, err={:?}", e);
+                return Err(PrepareError::Fatal);
+            }
         }
     }
 
