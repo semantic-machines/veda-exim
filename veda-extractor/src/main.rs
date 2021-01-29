@@ -146,6 +146,11 @@ fn prepare(module: &mut Module, _module_info: &mut ModuleInfo, ctx: &mut Context
         return Ok(true);
     }
 
+    let src = queue_element.get_first_literal("src").unwrap_or_default();
+    if src.starts_with("exim") {
+        return Ok(true);
+    }
+
     let mut prev_state = Individual::default();
     get_inner_binobj_as_individual(queue_element, "prev_state", &mut prev_state);
 
@@ -188,13 +193,13 @@ fn prepare_indv(
                     indv.add_binary("v-s:fileData", f);
                 }
             }
-            let res = add_to_queue(&mut ctx.queue_out, cmd.clone(), indv, msg_id, &ctx.db_id, &el.target, date);
+            let res = add_to_queue(&mut ctx.queue_out, cmd.clone(), indv, msg_id, &ctx.db_id, &el.target, date, el.enable_scripts);
             if let Err(e) = res {
                 error!("fail prepare message, err={:?}", e);
                 return Err(PrepareError::Fatal);
             }
         } else {
-            let res = add_to_queue(&mut ctx.queue_out, cmd.clone(), new_state, msg_id, &ctx.db_id, &el.target, date);
+            let res = add_to_queue(&mut ctx.queue_out, cmd.clone(), new_state, msg_id, &ctx.db_id, &el.target, date, el.enable_scripts);
             if let Err(e) = res {
                 error!("fail prepare message, err={:?}", e);
                 return Err(PrepareError::Fatal);
@@ -205,7 +210,16 @@ fn prepare_indv(
     Ok(true)
 }
 
-fn add_to_queue(queue_out: &mut Queue, cmd: IndvOp, new_state_indv: &mut Individual, msg_id: &str, source: &str, target: &str, date: i64) -> Result<(), i32> {
+fn add_to_queue(
+    queue_out: &mut Queue,
+    cmd: IndvOp,
+    new_state_indv: &mut Individual,
+    msg_id: &str,
+    source: &str,
+    target: &str,
+    date: i64,
+    enable_scripts: bool,
+) -> Result<(), i32> {
     new_state_indv.parse_all();
 
     let mut raw: Vec<u8> = Vec::new();
@@ -217,6 +231,7 @@ fn add_to_queue(queue_out: &mut Queue, cmd: IndvOp, new_state_indv: &mut Individ
         new_indv.add_integer("date", date);
         new_indv.add_string("source_veda", source, Lang::NONE);
         new_indv.add_string("target_veda", target, Lang::NONE);
+        new_indv.add_bool("enable_scripts", enable_scripts);
 
         info!("add to export queue: uri={}, source={}, target={}", new_state_indv.get_id(), &source, &target);
 

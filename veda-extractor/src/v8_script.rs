@@ -30,9 +30,10 @@ impl Drop for SetupGuard {
 pub struct OutValue {
     pub target: String,
     pub indv: Option<Individual>,
+    pub enable_scripts: bool,
 }
 
-pub fn is_exportable(_module: &mut Module, ctx: &mut Context, prev_state_indv: Option<&mut Individual>, new_state_indv: &mut Individual, user_id: &str) -> Vec<OutValue> {
+pub fn is_exportable(module: &mut Module, ctx: &mut Context, prev_state_indv: Option<&mut Individual>, new_state_indv: &mut Individual, user_id: &str) -> Vec<OutValue> {
     let mut ov = vec![];
 
     new_state_indv.parse_all();
@@ -84,13 +85,13 @@ pub fn is_exportable(_module: &mut Module, ctx: &mut Context, prev_state_indv: O
                                 for resources_idx in 0..key_list.length() {
                                     let j_resources_idx = v8::Integer::new(&mut scope, resources_idx as i32);
                                     if let Some(v) = res.get(&mut scope, j_resources_idx.into()) {
-                                        prepare_out_obj(&mut ov, v, &mut scope);
+                                        prepare_out_obj(module, &mut ov, v, &mut scope);
                                     }
                                 }
                             }
                         }
                     } else if res.is_object() {
-                        prepare_out_obj(&mut ov, res, &mut scope);
+                        prepare_out_obj(module, &mut ov, res, &mut scope);
                     } else if res.is_string() {
                         if let Some(s) = res.to_string(scope.as_mut()) {
                             let target = s.to_rust_string_lossy(&mut scope);
@@ -98,6 +99,7 @@ pub fn is_exportable(_module: &mut Module, ctx: &mut Context, prev_state_indv: O
                                 ov.push(OutValue {
                                     target,
                                     indv: None,
+                                    enable_scripts: false,
                                 });
                             }
                         }
@@ -113,28 +115,54 @@ pub fn is_exportable(_module: &mut Module, ctx: &mut Context, prev_state_indv: O
     return ov;
 }
 
-fn prepare_out_obj(ov: &mut Vec<OutValue>, res: Local<Value>, scope: &mut ContextScope<HandleScope>) {
+fn prepare_out_obj(module: &mut Module, ov: &mut Vec<OutValue>, res: Local<Value>, scope: &mut ContextScope<HandleScope>) {
     if let Some(out_obj) = res.to_object(scope) {
-        if let Some(j_predicates) = out_obj.get_property_names(scope) {
-            let idx0 = v8::Integer::new(scope, 0);
-            let k0 = j_predicates.get(scope, idx0.into()).unwrap();
-            let t0 = out_obj.get(scope, k0).unwrap();
-            let target = v8_2_str(scope, &t0);
+        let to_key = str_2_v8(scope, "to");
+        let indv_key = str_2_v8(scope, "indv");
+        let indv_id_key = str_2_v8(scope, "indv_id");
+        let enable_scripts_key = str_2_v8(scope, "enable_scripts");
 
-            let idx1 = v8::Integer::new(scope, 1);
-            let k1 = j_predicates.get(scope, idx1.into()).unwrap();
-            let t1 = out_obj.get(scope, k1).unwrap();
+        let mut target = String::new();
 
-            if let Some(o) = t1.to_object(scope) {
-                let mut ri = Individual::default();
-                v8obj_into_individual(scope, o, &mut ri);
-
-                ov.push(OutValue {
-                    target,
-                    indv: Some(ri),
-                });
+        if let Some(v_to) = out_obj.get(scope, to_key.into()) {
+            if let Some(v) = v_to.to_string(scope) {
+                target = v.to_rust_string_lossy(scope).to_owned();
             }
         }
+
+        let mut indv = None;
+
+        if let Some(v_indv_id) = out_obj.get(scope, indv_id_key.into()) {
+            if let Some(v) = v_indv_id.to_string(scope) {
+                let id = &v.to_rust_string_lossy(scope);
+                if let Some(i) = module.get_individual_h(id) {
+                    indv = Some(*i);
+                }
+            }
+        } else {
+            if let Some(v_indv) = out_obj.get(scope, indv_key.into()) {
+                if let Some(o) = v_indv.to_object(scope) {
+                    let mut ri = Individual::default();
+                    v8obj_into_individual(scope, o, &mut ri);
+                    indv = Some(ri);
+                }
+            }
+        }
+
+        let mut enable_scripts = false;
+
+        if let Some(v_enable_scripts) = out_obj.get(scope, enable_scripts_key.into()) {
+            if v_enable_scripts.is_boolean() {
+                let b = v_enable_scripts.to_boolean(scope);
+                enable_scripts = b.to_integer(scope).unwrap().value() != 0;
+            }
+        }
+
+        ov.push(OutValue {
+            target: target.to_owned(),
+            indv,
+            enable_scripts,
+        });
     }
 }
 

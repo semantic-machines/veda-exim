@@ -6,8 +6,6 @@ extern crate base64;
 
 pub mod configuration;
 
-use std::fs::File;
-use std::io::Write;
 use crate::configuration::Configuration;
 use base64::{decode, encode};
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -15,7 +13,9 @@ use serde_json::json;
 use serde_json::value::Value as JSONValue;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fs::*;
 use std::io::ErrorKind;
+use std::io::Write;
 use std::{thread, time};
 use uuid::*;
 use v_api::app::ResultCode;
@@ -312,6 +312,8 @@ pub fn processing_imported_message(my_node_id: &str, recv_indv: &mut Individual,
         return IOResult::new(recv_indv.get_id(), ExImCode::InvalidTarget);
     }
 
+    let enable_scripts = recv_indv.get_first_bool("enable_scripts").unwrap_or(false);
+
     let new_state = recv_indv.get_first_binobj("new_state");
     if cmd != IndvOp::Remove && new_state.is_some() {
         let mut indv = Individual::new_raw(RawObj::new(new_state.unwrap_or_default()));
@@ -325,32 +327,38 @@ pub fn processing_imported_message(my_node_id: &str, recv_indv: &mut Individual,
             }
 
             if indv.any_exists("rdf:type", &["v-s:File"]) {
-                if let Some (file_data) = indv.get_first_binobj("v-s:fileData") {
+                if let Some(file_data) = indv.get_first_binobj("v-s:fileData") {
+                    let src_dir_path = "data/files".to_owned() + &indv.get_first_literal("v-s:filePath").unwrap_or_default();
 
-                    let src_full_path = "data/files".to_owned()
-                        + &indv.get_first_literal("v-s:filePath").unwrap_or_default()
-                        + "/"
-                        + &indv.get_first_literal("v-s:fileUri").unwrap_or_default();
+                    if let Err(e) = create_dir_all(src_dir_path.clone()) {
+                        error!("fail create path: {:?}", e);
+                    }
 
-                        match File::create(src_full_path.clone()) {
-                            Ok (mut ofile) => {
-                                if let Err (e) = ofile.write_all(&file_data) {
-                                    error! ("fail write file: {:?}", e);
-                                } else {
-                                    info! ("success create file {}", src_full_path);
-                                }
-                            },
-                            Err (e) => {
-                                error! ("fail create file: {:?}", e);
+                    let src_full_path = src_dir_path + "/" + &indv.get_first_literal("v-s:fileUri").unwrap_or_default();
+
+                    match File::create(src_full_path.clone()) {
+                        Ok(mut ofile) => {
+                            if let Err(e) = ofile.write_all(&file_data) {
+                                error!("fail write file: {:?}", e);
+                            } else {
+                                info!("success create file {}", src_full_path);
                             }
                         }
-
+                        Err(e) => {
+                            error!("fail create file: {:?}", e);
+                        }
+                    }
                     indv.remove("v-s:fileData");
                 }
-
             }
 
-            let res = veda_api.update(systicket, cmd, &indv);
+            let src = if enable_scripts == true {
+                "exim-with-scripts"
+            } else {
+                "exim"
+            };
+
+            let res = veda_api.update_with_event(systicket, "", src, cmd, &indv);
 
             if res.result != ResultCode::Ok {
                 error!("fail update, uri={}, result_code={:?}", recv_indv.get_id(), res.result);
