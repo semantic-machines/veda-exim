@@ -133,18 +133,23 @@ fn prepare_out_obj(module: &mut Module, ov: &mut Vec<OutValue>, res: Local<Value
         let mut indv = None;
 
         if let Some(v_indv_id) = out_obj.get(scope, indv_id_key.into()) {
-            if let Some(v) = v_indv_id.to_string(scope) {
-                let id = &v.to_rust_string_lossy(scope);
-                if let Some(i) = module.get_individual_h(id) {
-                    indv = Some(*i);
+            if !v_indv_id.is_null_or_undefined() {
+                if let Some(v) = v_indv_id.to_string(scope) {
+                    let id = &v.to_rust_string_lossy(scope);
+                    if let Some(mut i) = module.get_individual_h(id) {
+                        i.parse_all();
+                        indv = Some(*i);
+                    }
                 }
-            }
-        } else {
-            if let Some(v_indv) = out_obj.get(scope, indv_key.into()) {
-                if let Some(o) = v_indv.to_object(scope) {
-                    let mut ri = Individual::default();
-                    v8obj_into_individual(scope, o, &mut ri);
-                    indv = Some(ri);
+            } else {
+                if let Some(v_indv) = out_obj.get(scope, indv_key.into()) {
+                    if !v_indv.is_null_or_undefined() {
+                        if let Some(o) = v_indv.to_object(scope) {
+                            let mut ri = Individual::default();
+                            v8obj_into_individual(scope, o, &mut ri);
+                            indv = Some(ri);
+                        }
+                    }
                 }
             }
         }
