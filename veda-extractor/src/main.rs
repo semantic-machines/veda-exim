@@ -18,6 +18,7 @@ use v_ft_xapian::xapian_reader::XapianReader;
 use v_module::info::ModuleInfo;
 use v_module::module::*;
 use v_module::onto::*;
+use v_module::remote_indv_r_storage::*;
 use v_onto::datatype::*;
 use v_onto::individual::*;
 use v_onto::individual2msgpack::*;
@@ -26,7 +27,6 @@ use v_queue::consumer::*;
 use v_queue::queue::*;
 use v_queue::record::*;
 use v_search::common::FTQuery;
-use v_storage::remote_indv_r_storage::inproc_storage_manager;
 use v_v8::common::ScriptInfoContext;
 use v_v8::jsruntime::JsRuntime;
 use v_v8::scripts_workplace::ScriptsWorkPlace;
@@ -146,8 +146,8 @@ fn prepare(module: &mut Module, _module_info: &mut ModuleInfo, ctx: &mut Context
         return Ok(true);
     }
 
-    let src = queue_element.get_first_literal("src").unwrap_or_default();
-    if src.starts_with("exim") {
+    let event_id = queue_element.get_first_literal("event_id").unwrap_or_default();
+    if event_id.starts_with("exim") {
         return Ok(true);
     }
 
@@ -233,7 +233,7 @@ fn add_to_queue(
         new_indv.add_string("target_veda", target, Lang::NONE);
         new_indv.add_bool("enable_scripts", enable_scripts);
 
-        info!("add to export queue: uri={}, source={}, target={}", new_state_indv.get_id(), &source, &target);
+        info!("add to export queue: uri={}, source={}, target={}, enable_scripts={}", new_state_indv.get_id(), &source, &target, enable_scripts);
 
         let mut raw1: Vec<u8> = Vec::new();
         if let Err(e) = to_msgpack(&new_indv, &mut raw1) {

@@ -202,6 +202,8 @@ pub fn create_export_message(queue_element: &mut Individual, node_id: &str) -> R
             return Err(ExImCode::InvalidMessage);
         }
 
+        let enable_scripts = queue_element.get_first_bool("enable_scripts").unwrap_or(false);
+
         let mut indv = Individual::new_raw(RawObj::new(new_state.unwrap_or_default()));
         if parse_raw(&mut indv).is_ok() {
             indv.parse_all();
@@ -216,6 +218,7 @@ pub fn create_export_message(queue_element: &mut Individual, node_id: &str) -> R
                 new_indv.add_integer("date", date.unwrap_or_default());
                 new_indv.add_string("source_veda", &source_veda.unwrap_or_default(), Lang::NONE);
                 new_indv.add_string("target_veda", &target_veda, Lang::NONE);
+                new_indv.add_bool("enable_scripts", enable_scripts);
 
                 return Ok(new_indv);
             }
@@ -353,18 +356,18 @@ pub fn processing_imported_message(my_node_id: &str, recv_indv: &mut Individual,
             }
 
             let src = if enable_scripts == true {
-                "exim-with-scripts"
+                "?"
             } else {
                 "exim"
             };
 
-            let res = veda_api.update_with_event(systicket, "", src, cmd, &indv);
+            let res = veda_api.update_with_event(systicket, "exim", "?", cmd, &indv);
 
             if res.result != ResultCode::Ok {
                 error!("fail update, uri={}, result_code={:?}", recv_indv.get_id(), res.result);
                 return IOResult::new(recv_indv.get_id(), ExImCode::FailUpdate);
             } else {
-                info!("get from {}, success update, uri={}", source_veda, recv_indv.get_id());
+                info!("get from {}, success update, src={}, uri={}", source_veda, src, recv_indv.get_id());
                 return IOResult::new(recv_indv.get_id(), ExImCode::Ok);
             }
         }
