@@ -11,18 +11,14 @@ path = "src/main.rs"
 [dependencies]
 log = "0.4"
 lazy_static = "1.4.0"
-rusty_v8 = "0.17.0"
 serde = { version = "1.0", features = [ "derive" ] }
 serde_derive = "1.0"
 serde_json = "^1.0"
 
 v_queue = "0.1"
-v_onto = { package = "v-common-onto", version = "0.1.1" }
-v_api = { package = "v-common-api", version = "0.1.2" }
-v_storage = { package = "v-common-storage", version = "0.1.5" }
-v_search = { package = "v-common-search", version = "0.1.2" }
-v_module = { package = "v-common-module", version = "0.1.12" }
-v_ft_xapian = { package = "v-common-ft-xapian", version = "0.1.10" }
-v_v8 = { package = "v-common-v8", version = "0.1.15" }
+
+v_module = { package = "v-common-module", version = "0.1.19" }
+v_ft_xapian = { package = "v-common-ft-xapian", version = "0.1.17" }
+v_v8 = { package = "v-common-v8", version = "0.1.21" }
 
 v_exim = { path = "../v-exim" }

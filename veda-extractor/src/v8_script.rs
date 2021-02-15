@@ -1,15 +1,15 @@
 use crate::Context;
-use rusty_v8 as v8;
-use rusty_v8::{ContextScope, HandleScope, Local, Value};
 use std::collections::HashSet;
 use std::sync::Mutex;
-use v_api::app::ResultCode;
 use v_ft_xapian::xapian_reader::XapianReader;
 use v_module::module::Module;
-use v_onto::individual::Individual;
-use v_search::common::FTQuery;
+use v_module::v_api::app::ResultCode;
+use v_module::v_onto::individual::Individual;
+use v_module::v_search::common::FTQuery;
 use v_v8::callback::*;
 use v_v8::common::*;
+use v_v8::rusty_v8 as v8;
+use v_v8::rusty_v8::{ContextScope, HandleScope, Local, Value};
 use v_v8::scripts_workplace::ScriptsWorkPlace;
 use v_v8::session_cache::CallbackSharedData;
 

@@ -11,8 +11,8 @@ use std::{thread, time};
 use v_exim::configuration::Configuration;
 use v_exim::*;
 use v_module::module::*;
+use v_module::v_storage::storage::StorageMode;
 use v_queue::consumer::*;
-use v_storage::storage::StorageMode;
 
 fn main() -> std::io::Result<()> {
     init_log("EXIM_INQUIRE");

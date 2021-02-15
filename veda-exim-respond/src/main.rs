@@ -18,7 +18,7 @@ use serde_json::Value;
 use std::error::Error;
 use std::io::ErrorKind;
 use std::sync::Mutex;
-use v_api::*;
+use v_module::v_api::*;
 use v_exim::*;
 use v_module::module::*;
 use v_onto::individual::{Individual, RawObj};
