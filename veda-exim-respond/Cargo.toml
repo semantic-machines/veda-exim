@@ -18,7 +18,7 @@ lazy_static = "1.4.0"
 
 v_queue = "0.1"
 
-v_module = { package = "v-common-module", version = "0.1.19" }
+v_module = { package = "v-common-module", version = "0.1.23" }
 
 v_exim = { path = "../v-exim" }
 

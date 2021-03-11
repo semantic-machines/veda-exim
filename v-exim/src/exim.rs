@@ -361,7 +361,7 @@ pub fn processing_imported_message(my_node_id: &str, recv_indv: &mut Individual,
                 "exim"
             };
 
-            let res = veda_api.update_with_event(systicket, "exim", "?", cmd, &indv);
+            let res = veda_api.update_use_param(systicket, "exim", "?", ALL_MODULES, cmd, &indv);
 
             if res.result != ResultCode::Ok {
                 error!("fail update, uri={}, result_code={:?}", recv_indv.get_id(), res.result);
