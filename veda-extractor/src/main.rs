@@ -44,7 +44,7 @@ pub struct Context<'a> {
 
 fn main() -> Result<(), i32> {
     init_log("EXIM-EXTRACTOR");
-    thread::spawn(move || inproc_storage_manager());
+    thread::spawn(move || inproc_storage_manager);
 
     let mut js_runtime = JsRuntime::new();
     listen_queue(&mut js_runtime)
@@ -107,7 +107,7 @@ fn listen_queue<'a>(js_runtime: &'a mut JsRuntime) -> Result<(), i32> {
         let args: Vec<String> = env::args().collect();
         for el in args.iter() {
             if el.starts_with("--query") {
-                if let Some(i) = el.find("=") {
+                if let Some(i) = el.find('=') {
                     let query = el.to_string().split_off(i + 1).replace("\'", "'");
                     if let Err(e) = export_from_query(&query, &mut module, &mut ctx) {
                         error!("fail execute query [{}], err={:?}", query, e);

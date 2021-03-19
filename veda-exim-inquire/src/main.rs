@@ -62,19 +62,15 @@ fn main() -> std::io::Result<()> {
 
                 // request changes from slave node
                 info!("request changes form node {}", consumer_name);
-                loop {
-                    if let Ok(recv_msg) = recv_import_message(&my_node_id, &exim_resp_api) {
-                        if let Ok(mut recv_indv) = decode_message(&recv_msg) {
-                            let res = processing_imported_message(&my_node_id, &mut recv_indv, &sys_ticket, &mut module.api);
-                            if res.res_code != ExImCode::Ok {
-                                error!("fail accept changes, uri={}, err={:?}", res.id, res.res_code);
-                            } else {
-                                sleep_time = 1000;
-                                info!("get {} form node {}", recv_indv.get_id(), consumer_name);
-                            }
+                while let Ok(recv_msg) = recv_import_message(&my_node_id, &exim_resp_api) {
+                    if let Ok(mut recv_indv) = decode_message(&recv_msg) {
+                        let res = processing_imported_message(&my_node_id, &mut recv_indv, &sys_ticket, &mut module.api);
+                        if res.res_code != ExImCode::Ok {
+                            error!("fail accept changes, uri={}, err={:?}", res.id, res.res_code);
+                        } else {
+                            sleep_time = 1000;
+                            info!("get {} form node {}", recv_indv.get_id(), consumer_name);
                         }
-                    } else {
-                        break;
                     }
                 }
             }

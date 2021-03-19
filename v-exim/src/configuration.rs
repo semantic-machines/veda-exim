@@ -1,5 +1,3 @@
-use reqwest;
-
 pub struct Configuration {
     pub base_path: String,
     pub user_agent: Option<String>,

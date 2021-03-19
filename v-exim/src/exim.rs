@@ -92,14 +92,15 @@ pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configurat
         return (count_sent, ExImCode::InvalidMessage);
     }
 
-    if queue_consumer.queue.count_pushed - queue_consumer.count_popped == 0 {
+    let delta = queue_consumer.queue.count_pushed - queue_consumer.count_popped;
+    if delta == 0 {
         // if not new messages, read queue info
         queue_consumer.queue.get_info_queue();
 
         if queue_consumer.queue.id > queue_consumer.id {
             size_batch = 1;
         }
-    } else if queue_consumer.queue.count_pushed - queue_consumer.count_popped > 0 {
+    } else if delta > 0 {
         if queue_consumer.queue.id != queue_consumer.id {
             size_batch = 1;
         } else {
@@ -166,7 +167,7 @@ pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configurat
             }
         }
     }
-    return (count_sent, ExImCode::Ok);
+    (count_sent, ExImCode::Ok)
 }
 
 pub fn create_export_message(queue_element: &mut Individual, node_id: &str) -> Result<Individual, ExImCode> {
@@ -250,7 +251,7 @@ pub fn decode_message(src: &JSONValue) -> Result<Individual, Box<dyn Error>> {
         }
     }
 
-    return Err(Box::new(std::io::Error::new(ErrorKind::Other, format!("fail decode import message"))));
+    Err(Box::new(std::io::Error::new(ErrorKind::Other, "fail decode import message".to_owned())))
 }
 
 fn send_export_message(out_obj: &mut Individual, resp_api: &Configuration) -> Result<IOResult, Box<dyn Error>> {
@@ -355,7 +356,7 @@ pub fn processing_imported_message(my_node_id: &str, recv_indv: &mut Individual,
                 }
             }
 
-            let src = if enable_scripts == true {
+            let src = if enable_scripts {
                 "?"
             } else {
                 "exim"

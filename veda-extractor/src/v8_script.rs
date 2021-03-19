@@ -112,7 +112,7 @@ pub fn is_exportable(module: &mut Module, ctx: &mut Context, prev_state_indv: Op
             }
         }
     }
-    return ov;
+    ov
 }
 
 fn prepare_out_obj(module: &mut Module, ov: &mut Vec<OutValue>, res: Local<Value>, scope: &mut ContextScope<HandleScope>) {
@@ -126,7 +126,7 @@ fn prepare_out_obj(module: &mut Module, ov: &mut Vec<OutValue>, res: Local<Value
 
         if let Some(v_to) = out_obj.get(scope, to_key.into()) {
             if let Some(v) = v_to.to_string(scope) {
-                target = v.to_rust_string_lossy(scope).to_owned();
+                target = v.to_rust_string_lossy(scope);
             }
         }
 
@@ -141,8 +141,7 @@ fn prepare_out_obj(module: &mut Module, ov: &mut Vec<OutValue>, res: Local<Value
                         indv = Some(*i);
                     }
                 }
-            } else {
-                if let Some(v_indv) = out_obj.get(scope, indv_key.into()) {
+            } else if let Some(v_indv) = out_obj.get(scope, indv_key.into()) {
                     if !v_indv.is_null_or_undefined() {
                         if let Some(o) = v_indv.to_object(scope) {
                             let mut ri = Individual::default();
@@ -151,7 +150,6 @@ fn prepare_out_obj(module: &mut Module, ov: &mut Vec<OutValue>, res: Local<Value
                         }
                     }
                 }
-            }
         }
 
         let mut enable_scripts = false;
@@ -164,7 +162,7 @@ fn prepare_out_obj(module: &mut Module, ov: &mut Vec<OutValue>, res: Local<Value
         }
 
         ov.push(OutValue {
-            target: target.to_owned(),
+            target,
             indv,
             enable_scripts,
         });
