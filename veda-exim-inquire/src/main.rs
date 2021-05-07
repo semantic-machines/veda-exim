@@ -12,15 +12,16 @@ use v_exim::configuration::Configuration;
 use v_exim::*;
 use v_module::module::*;
 use v_module::v_storage::storage::StorageMode;
+use v_module::veda_backend::*;
 use v_queue::consumer::*;
 
 fn main() -> std::io::Result<()> {
     init_log("EXIM_INQUIRE");
 
-    let mut module = Module::new(StorageMode::ReadOnly, false);
+    let mut backend = Backend::create(StorageMode::ReadOnly, false);
 
     let sys_ticket;
-    if let Ok(t) = module.get_sys_ticket_id() {
+    if let Ok(t) = backend.get_sys_ticket_id() {
         sys_ticket = t;
     } else {
         error!("fail get system ticket");
@@ -31,9 +32,9 @@ fn main() -> std::io::Result<()> {
     let mut node_upd_counter = 0;
     let mut link_node_addresses = HashMap::new();
 
-    let mut my_node_id = get_db_id(&mut module);
+    let mut my_node_id = get_db_id(&mut backend);
     if my_node_id.is_none() {
-        my_node_id = create_db_id(&mut module);
+        my_node_id = create_db_id(&mut backend);
 
         if my_node_id.is_none() {
             error!("fail create Database Identification");
@@ -43,7 +44,7 @@ fn main() -> std::io::Result<()> {
     let my_node_id = my_node_id.unwrap();
     info!("my node_id={}", my_node_id);
 
-    load_linked_nodes(&mut module, &mut node_upd_counter, &mut link_node_addresses);
+    load_linked_nodes(&mut backend, &mut node_upd_counter, &mut link_node_addresses);
 
     let mut sleep_time = 1000;
 
@@ -64,7 +65,7 @@ fn main() -> std::io::Result<()> {
                 info!("request changes form node {}", consumer_name);
                 while let Ok(recv_msg) = recv_import_message(&my_node_id, &exim_resp_api) {
                     if let Ok(mut recv_indv) = decode_message(&recv_msg) {
-                        let res = processing_imported_message(&my_node_id, &mut recv_indv, &sys_ticket, &mut module.api);
+                        let res = processing_imported_message(&my_node_id, &mut recv_indv, &sys_ticket, &mut backend.api);
                         if res.res_code != ExImCode::Ok {
                             error!("fail accept changes, uri={}, err={:?}", res.id, res.res_code);
                         } else {

@@ -24,6 +24,8 @@ use v_module::v_onto::individual::*;
 use v_module::v_onto::individual2msgpack::*;
 use v_module::v_onto::onto::*;
 use v_module::v_search::common::FTQuery;
+use v_module::v_storage::storage::*;
+use v_module::veda_backend::*;
 use v_queue::consumer::*;
 use v_queue::queue::*;
 use v_queue::record::*;
@@ -57,13 +59,14 @@ fn listen_queue<'a>(js_runtime: &'a mut JsRuntime) -> Result<(), i32> {
         return Err(-1);
     }
 
+    let mut backend = Backend::create(StorageMode::ReadOnly, false);
     let mut module = Module::default();
-    while !module.api.connect() {
+    while !backend.api.connect() {
         error!("main module not ready, sleep and repeat");
         thread::sleep(time::Duration::from_millis(1000));
     }
     let sys_ticket;
-    if let Ok(t) = module.get_sys_ticket_id() {
+    if let Ok(t) = backend.get_sys_ticket_id() {
         sys_ticket = t;
     } else {
         error!("fail get sys_ticket");
@@ -73,12 +76,12 @@ fn listen_queue<'a>(js_runtime: &'a mut JsRuntime) -> Result<(), i32> {
     let mut onto = Onto::default();
 
     info!("load onto start");
-    load_onto(&mut module.storage, &mut onto);
+    load_onto(&mut backend.storage, &mut onto);
     info!("load onto end");
 
-    let mut my_node_id = get_db_id(&mut module);
+    let mut my_node_id = get_db_id(&mut backend);
     if my_node_id.is_none() {
-        my_node_id = create_db_id(&mut module);
+        my_node_id = create_db_id(&mut backend);
 
         if my_node_id.is_none() {
             error!("fail create Database Identification");
@@ -91,7 +94,7 @@ fn listen_queue<'a>(js_runtime: &'a mut JsRuntime) -> Result<(), i32> {
     let queue_out = Queue::new("./data/out", "extract", Mode::ReadWrite).expect("!!!!!!!!! FAIL QUEUE");
     let mut queue_consumer = Consumer::new("./data/queue", "extract", "individuals-flow").expect("!!!!!!!!! FAIL QUEUE");
 
-    if let Some(xr) = XapianReader::new("russian", &mut module.storage) {
+    if let Some(xr) = XapianReader::new("russian", &mut backend.storage) {
         let mut ctx = Context {
             sys_ticket,
             queue_out,
@@ -109,7 +112,7 @@ fn listen_queue<'a>(js_runtime: &'a mut JsRuntime) -> Result<(), i32> {
             if el.starts_with("--query") {
                 if let Some(i) = el.find('=') {
                     let query = el.to_string().split_off(i + 1).replace("\'", "'");
-                    if let Err(e) = export_from_query(&query, &mut module, &mut ctx) {
+                    if let Err(e) = export_from_query(&query, &mut backend, &mut ctx) {
                         error!("fail execute query [{}], err={:?}", query, e);
                     }
                 }
@@ -119,28 +122,29 @@ fn listen_queue<'a>(js_runtime: &'a mut JsRuntime) -> Result<(), i32> {
         module.listen_queue(
             &mut queue_consumer,
             &mut ctx,
-            &mut (before_batch as fn(&mut Module, &mut Context<'a>, batch_size: u32) -> Option<u32>),
-            &mut (prepare as fn(&mut Module, &mut Context<'a>, &mut Individual, my_consumer: &Consumer) -> Result<bool, PrepareError>),
-            &mut (after_batch as fn(&mut Module, &mut Context<'a>, prepared_batch_size: u32) -> Result<bool, PrepareError>),
-            &mut (heartbeat as fn(&mut Module, &mut Context<'a>) -> Result<(), PrepareError>),
+            &mut (before_batch as fn(&mut Backend, &mut Context<'a>, batch_size: u32) -> Option<u32>),
+            &mut (prepare as fn(&mut Backend, &mut Context<'a>, &mut Individual, my_consumer: &Consumer) -> Result<bool, PrepareError>),
+            &mut (after_batch as fn(&mut Backend, &mut Context<'a>, prepared_batch_size: u32) -> Result<bool, PrepareError>),
+            &mut (heartbeat as fn(&mut Backend, &mut Context<'a>) -> Result<(), PrepareError>),
+            &mut backend,
         );
     }
     Ok(())
 }
 
-fn heartbeat(_module: &mut Module, _ctx: &mut Context) -> Result<(), PrepareError> {
+fn heartbeat(_backend: &mut Backend, _ctx: &mut Context) -> Result<(), PrepareError> {
     Ok(())
 }
 
-fn before_batch(_module: &mut Module, _ctx: &mut Context, _size_batch: u32) -> Option<u32> {
+fn before_batch(_backend: &mut Backend, _ctx: &mut Context, _size_batch: u32) -> Option<u32> {
     None
 }
 
-fn after_batch(_module: &mut Module, _ctx: &mut Context, _prepared_batch_size: u32) -> Result<bool, PrepareError> {
+fn after_batch(_backend: &mut Backend, _ctx: &mut Context, _prepared_batch_size: u32) -> Result<bool, PrepareError> {
     Ok(false)
 }
 
-fn prepare(module: &mut Module, ctx: &mut Context, queue_element: &mut Individual, _my_consumer: &Consumer) -> Result<bool, PrepareError> {
+fn prepare(backend: &mut Backend, ctx: &mut Context, queue_element: &mut Individual, _my_consumer: &Consumer) -> Result<bool, PrepareError> {
     let cmd = get_cmd(queue_element);
     if cmd.is_none() {
         error!("cmd is none");
@@ -164,11 +168,11 @@ fn prepare(module: &mut Module, ctx: &mut Context, queue_element: &mut Individua
     //    if date.is_none() {
     //        return Ok(());
     //    }
-    prepare_indv(module, ctx, cmd.unwrap(), Some(&mut prev_state), &mut new_state, &user_id, date.unwrap_or_default(), &queue_element.get_id())
+    prepare_indv(backend, ctx, cmd.unwrap(), Some(&mut prev_state), &mut new_state, &user_id, date.unwrap_or_default(), &queue_element.get_id())
 }
 
 fn prepare_indv(
-    module: &mut Module,
+    backend: &mut Backend,
     ctx: &mut Context,
     cmd: IndvOp,
     prev_state: Option<&mut Individual>,
@@ -177,7 +181,7 @@ fn prepare_indv(
     date: i64,
     msg_id: &str,
 ) -> Result<bool, PrepareError> {
-    let mut export_list = is_exportable(module, ctx, prev_state, new_state, user_id);
+    let mut export_list = is_exportable(backend, ctx, prev_state, new_state, user_id);
     if export_list.is_empty() {
         return Ok(true);
     }
@@ -249,17 +253,17 @@ fn add_to_queue(
     Ok(())
 }
 
-fn export_from_query(query: &str, module: &mut Module, ctx: &mut Context) -> Result<(), PrepareError> {
+fn export_from_query(query: &str, backend: &mut Backend, ctx: &mut Context) -> Result<(), PrepareError> {
     let mut ftq = FTQuery::new_with_user("cfg:VedaSystem", query);
     ftq.top = 100000;
     ftq.limit = 100000;
     info!("execute query [{:?}]", ftq);
-    let res = ctx.xr.query(ftq, &mut module.storage);
+    let res = ctx.xr.query(ftq, &mut backend.storage);
     if res.result_code == ResultCode::Ok && res.count > 0 {
         for id in &res.result {
-            if let Some(mut indv) = module.get_individual(id, &mut Individual::default()) {
+            if let Some(mut indv) = backend.get_individual(id, &mut Individual::default()) {
                 let msg_id = indv.get_id().to_string();
-                prepare_indv(module, ctx, IndvOp::Put, None, &mut indv, "", 0, &msg_id)?;
+                prepare_indv(backend, ctx, IndvOp::Put, None, &mut indv, "", 0, &msg_id)?;
             }
         }
     }

@@ -2,10 +2,10 @@ use crate::Context;
 use std::collections::HashSet;
 use std::sync::Mutex;
 use v_ft_xapian::xapian_reader::XapianReader;
-use v_module::module::Module;
 use v_module::v_api::app::ResultCode;
 use v_module::v_onto::individual::Individual;
 use v_module::v_search::common::FTQuery;
+use v_module::veda_backend::Backend;
 use v_v8::callback::*;
 use v_v8::common::*;
 use v_v8::rusty_v8 as v8;
@@ -33,7 +33,13 @@ pub struct OutValue {
     pub enable_scripts: bool,
 }
 
-pub fn is_exportable(module: &mut Module, ctx: &mut Context, prev_state_indv: Option<&mut Individual>, new_state_indv: &mut Individual, user_id: &str) -> Vec<OutValue> {
+pub fn is_exportable(
+    backend: &mut Backend,
+    ctx: &mut Context,
+    prev_state_indv: Option<&mut Individual>,
+    new_state_indv: &mut Individual,
+    user_id: &str,
+) -> Vec<OutValue> {
     let mut ov = vec![];
 
     new_state_indv.parse_all();
@@ -85,13 +91,13 @@ pub fn is_exportable(module: &mut Module, ctx: &mut Context, prev_state_indv: Op
                                 for resources_idx in 0..key_list.length() {
                                     let j_resources_idx = v8::Integer::new(&mut scope, resources_idx as i32);
                                     if let Some(v) = res.get(&mut scope, j_resources_idx.into()) {
-                                        prepare_out_obj(module, &mut ov, v, &mut scope);
+                                        prepare_out_obj(backend, &mut ov, v, &mut scope);
                                     }
                                 }
                             }
                         }
                     } else if res.is_object() {
-                        prepare_out_obj(module, &mut ov, res, &mut scope);
+                        prepare_out_obj(backend, &mut ov, res, &mut scope);
                     } else if res.is_string() {
                         if let Some(s) = res.to_string(scope.as_mut()) {
                             let target = s.to_rust_string_lossy(&mut scope);
@@ -115,7 +121,7 @@ pub fn is_exportable(module: &mut Module, ctx: &mut Context, prev_state_indv: Op
     ov
 }
 
-fn prepare_out_obj(module: &mut Module, ov: &mut Vec<OutValue>, res: Local<Value>, scope: &mut ContextScope<HandleScope>) {
+fn prepare_out_obj(backend: &mut Backend, ov: &mut Vec<OutValue>, res: Local<Value>, scope: &mut ContextScope<HandleScope>) {
     if let Some(out_obj) = res.to_object(scope) {
         let to_key = str_2_v8(scope, "to");
         let indv_key = str_2_v8(scope, "indv");
@@ -136,20 +142,20 @@ fn prepare_out_obj(module: &mut Module, ov: &mut Vec<OutValue>, res: Local<Value
             if !v_indv_id.is_null_or_undefined() {
                 if let Some(v) = v_indv_id.to_string(scope) {
                     let id = &v.to_rust_string_lossy(scope);
-                    if let Some(mut i) = module.get_individual_h(id) {
+                    if let Some(mut i) = backend.get_individual_h(id) {
                         i.parse_all();
                         indv = Some(*i);
                     }
                 }
             } else if let Some(v_indv) = out_obj.get(scope, indv_key.into()) {
-                    if !v_indv.is_null_or_undefined() {
-                        if let Some(o) = v_indv.to_object(scope) {
-                            let mut ri = Individual::default();
-                            v8obj_into_individual(scope, o, &mut ri);
-                            indv = Some(ri);
-                        }
+                if !v_indv.is_null_or_undefined() {
+                    if let Some(o) = v_indv.to_object(scope) {
+                        let mut ri = Individual::default();
+                        v8obj_into_individual(scope, o, &mut ri);
+                        indv = Some(ri);
                     }
                 }
+            }
         }
 
         let mut enable_scripts = false;
@@ -170,11 +176,11 @@ fn prepare_out_obj(module: &mut Module, ov: &mut Vec<OutValue>, res: Local<Value
 }
 
 pub(crate) fn load_exim_filter_scripts(wp: &mut ScriptsWorkPlace<ScriptInfoContext>, xr: &mut XapianReader) {
-    let res = xr.query(FTQuery::new_with_user("cfg:VedaSystem", "'rdf:type' === 'v-s:EximFilter'"), &mut wp.module.storage);
+    let res = xr.query(FTQuery::new_with_user("cfg:VedaSystem", "'rdf:type' === 'v-s:EximFilter'"), &mut wp.backend.storage);
 
     if res.result_code == ResultCode::Ok && res.count > 0 {
         for id in &res.result {
-            if let Some(ev_indv) = wp.module.get_individual(id, &mut Individual::default()) {
+            if let Some(ev_indv) = wp.backend.get_individual(id, &mut Individual::default()) {
                 prepare_script(wp, ev_indv);
             }
         }

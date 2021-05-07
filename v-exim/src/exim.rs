@@ -5,6 +5,7 @@ extern crate log;
 extern crate base64;
 
 pub mod configuration;
+use v_module::veda_backend::Backend;
 
 use crate::configuration::Configuration;
 use base64::{decode, encode};
@@ -20,7 +21,6 @@ use std::{thread, time};
 use uuid::*;
 use v_api::app::ResultCode;
 use v_api::*;
-use v_module::module::Module;
 use v_onto::datatype::Lang;
 use v_onto::individual::{Individual, RawObj};
 use v_onto::individual2msgpack::*;
@@ -377,10 +377,10 @@ pub fn processing_imported_message(my_node_id: &str, recv_indv: &mut Individual,
     IOResult::new(recv_indv.get_id(), ExImCode::FailUpdate)
 }
 
-pub fn load_linked_nodes(module: &mut Module, node_upd_counter: &mut i64, link_node_addresses: &mut HashMap<String, String>) {
+pub fn load_linked_nodes(backend: &mut Backend, node_upd_counter: &mut i64, link_node_addresses: &mut HashMap<String, String>) {
     let mut node = Individual::default();
 
-    if module.storage.get_individual("cfg:standart_node", &mut node) {
+    if backend.storage.get_individual("cfg:standart_node", &mut node) {
         if let Some(c) = node.get_first_integer("v-s:updateCounter") {
             if c > *node_upd_counter {
                 link_node_addresses.clear();
@@ -388,7 +388,7 @@ pub fn load_linked_nodes(module: &mut Module, node_upd_counter: &mut i64, link_n
                     for el in v {
                         let mut link_node = Individual::default();
 
-                        if module.storage.get_individual(&el, &mut link_node) && !link_node.is_exists("v-s:delete") {
+                        if backend.storage.get_individual(&el, &mut link_node) && !link_node.is_exists("v-s:delete") {
                             if let Some(addr) = link_node.get_first_literal("rdf:value") {
                                 link_node_addresses.insert(link_node.get_first_literal("cfg:node_id").unwrap_or_default(), addr);
                             }
@@ -402,9 +402,9 @@ pub fn load_linked_nodes(module: &mut Module, node_upd_counter: &mut i64, link_n
     }
 }
 
-pub fn get_db_id(module: &mut Module) -> Option<String> {
+pub fn get_db_id(backend: &mut Backend) -> Option<String> {
     let mut indv = Individual::default();
-    if module.storage.get_individual("cfg:system", &mut indv) {
+    if backend.storage.get_individual("cfg:system", &mut indv) {
         if let Some(c) = indv.get_first_literal("sys:id") {
             return Some(c);
         }
@@ -412,9 +412,9 @@ pub fn get_db_id(module: &mut Module) -> Option<String> {
     None
 }
 
-pub fn create_db_id(module: &mut Module) -> Option<String> {
+pub fn create_db_id(backend: &mut Backend) -> Option<String> {
     let systicket;
-    if let Ok(t) = module.get_sys_ticket_id() {
+    if let Ok(t) = backend.get_sys_ticket_id() {
         systicket = t;
     } else {
         error!("fail get systicket");
@@ -428,7 +428,7 @@ pub fn create_db_id(module: &mut Module) -> Option<String> {
     new_indv.set_id("cfg:system");
     new_indv.add_string("sys:id", &uuid1, Lang::NONE);
 
-    let res = module.api.update(&systicket, IndvOp::Put, &new_indv);
+    let res = backend.api.update(&systicket, IndvOp::Put, &new_indv);
 
     if res.result != ResultCode::Ok {
         error!("fail update, uri={}, result_code={:?}", new_indv.get_id(), res.result);

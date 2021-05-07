@@ -18,9 +18,10 @@ use serde_json::Value;
 use std::error::Error;
 use std::io::ErrorKind;
 use std::sync::Mutex;
-use v_module::v_api::*;
 use v_exim::*;
 use v_module::module::*;
+use v_module::v_api::*;
+use v_module::veda_backend::Backend;
 use v_onto::individual::{Individual, RawObj};
 use v_queue::consumer::Consumer;
 use v_queue::record::ErrorQueue;
@@ -40,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn rocket() -> Result<rocket::Rocket, Box<dyn Error>> {
     info!("START EXIM RESPOND");
-    let mut module = Module::default();
+    let mut backend = Backend::default();
 
     let param_name = "exim_respond_port";
     let exim_respond_port = Module::get_property(param_name);
@@ -49,15 +50,15 @@ fn rocket() -> Result<rocket::Rocket, Box<dyn Error>> {
     }
 
     let sys_ticket;
-    if let Ok(t) = module.get_sys_ticket_id() {
+    if let Ok(t) = backend.get_sys_ticket_id() {
         sys_ticket = t;
     } else {
         return Err(Box::new(std::io::Error::new(ErrorKind::NotFound, format!("fail get system ticket"))));
     }
 
-    let mut node_id = get_db_id(&mut module);
+    let mut node_id = get_db_id(&mut backend);
     if node_id.is_none() {
-        node_id = create_db_id(&mut module);
+        node_id = create_db_id(&mut backend);
     }
 
     if node_id.is_none() {
