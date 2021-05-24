@@ -13,6 +13,6 @@ log = "0.4"
 
 v_queue = "0.1.7"
 
-v_module = { package = "v-common-module", version = "=0.1.38" }
+v_module = { package = "v-common-module", version = "=0.1.39" }
 
 v_exim = { path = "../v-exim" }
