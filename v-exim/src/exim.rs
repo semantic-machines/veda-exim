@@ -5,9 +5,8 @@ extern crate log;
 extern crate base64;
 
 pub mod configuration;
-use v_module::veda_backend::Backend;
-
 use crate::configuration::Configuration;
+
 use base64::{decode, encode};
 use num_traits::{FromPrimitive, ToPrimitive};
 use serde_json::json;
@@ -19,12 +18,13 @@ use std::io::ErrorKind;
 use std::io::Write;
 use std::{thread, time};
 use uuid::*;
-use v_api::app::ResultCode;
-use v_api::*;
-use v_onto::datatype::Lang;
-use v_onto::individual::{Individual, RawObj};
-use v_onto::individual2msgpack::*;
-use v_onto::parser::*;
+use v_module::v_api::app::ResultCode;
+use v_module::v_api::*;
+use v_module::v_onto::datatype::*;
+use v_module::v_onto::individual::*;
+use v_module::v_onto::individual2msgpack::*;
+use v_module::v_onto::parser::*;
+use v_module::veda_backend::Backend;
 use v_queue::consumer::*;
 use v_queue::record::*;
 
