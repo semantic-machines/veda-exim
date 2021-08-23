@@ -8,11 +8,11 @@ extern crate log;
 
 use std::collections::HashMap;
 use std::{thread, time};
+use v_common::module::module::init_log;
+use v_common::module::veda_backend::Backend;
+use v_common::storage::storage::StorageMode;
 use v_exim::configuration::Configuration;
 use v_exim::*;
-use v_module::module::*;
-use v_module::v_storage::storage::StorageMode;
-use v_module::veda_backend::*;
 use v_queue::consumer::*;
 
 fn main() -> std::io::Result<()> {

@@ -1,17 +1,17 @@
 use crate::Context;
 use std::collections::HashSet;
 use std::sync::Mutex;
-use v_ft_xapian::xapian_reader::XapianReader;
-use v_module::v_api::app::ResultCode;
-use v_module::v_onto::individual::Individual;
-use v_module::v_search::common::FTQuery;
-use v_module::veda_backend::Backend;
 use v_v8::callback::*;
 use v_v8::common::*;
 use v_v8::rusty_v8 as v8;
 use v_v8::rusty_v8::{ContextScope, HandleScope, Local, Value};
 use v_v8::scripts_workplace::ScriptsWorkPlace;
 use v_v8::session_cache::CallbackSharedData;
+use v_v8::v_common::ft_xapian::xapian_reader::XapianReader;
+use v_v8::v_common::module::veda_backend::Backend;
+use v_v8::v_common::onto::individual::Individual;
+use v_v8::v_common::search::common::FTQuery;
+use v_v8::v_common::v_api::obj::ResultCode;
 
 lazy_static! {
     static ref INIT_LOCK: Mutex<u32> = Mutex::new(0);

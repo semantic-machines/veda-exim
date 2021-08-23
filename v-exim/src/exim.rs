@@ -18,15 +18,16 @@ use std::io::ErrorKind;
 use std::io::Write;
 use std::{thread, time};
 use uuid::*;
-use v_module::v_api::app::ResultCode;
-use v_module::v_api::*;
-use v_module::v_onto::datatype::*;
-use v_module::v_onto::individual::*;
-use v_module::v_onto::individual2msgpack::*;
-use v_module::v_onto::parser::*;
-use v_module::veda_backend::Backend;
 use v_queue::consumer::*;
 use v_queue::record::*;
+use v_common::v_api::api_client::{IndvOp, APIClient, ALL_MODULES};
+use v_common::onto::datatype::Lang;
+use v_common::v_api::obj::ResultCode;
+use v_common::onto::individual::{RawObj, Individual};
+use v_common::onto::parser::parse_raw;
+use v_common::onto::individual2msgpack::to_msgpack;
+use v_common::module::veda_backend::Backend;
+
 
 const TRANSMIT_FAILED: i64 = 32;
 

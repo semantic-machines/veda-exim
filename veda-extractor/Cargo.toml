@@ -15,10 +15,10 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_derive = "1.0"
 serde_json = "^1.0"
 
-v_queue = "0.1"
+v_queue = "=0.1.9"
 
-v_module = { package = "v-common-module", version = "=0.1.44" }
-v_ft_xapian = { package = "v-common-ft-xapian", version = "=0.1.46" }
-v_v8 = { package = "v-common-v8", version = "=0.1.61" }
+#v_module = { package = "v-common-module", version = "=0.1.55" }
+#v_ft_xapian = { package = "v-common-ft-xapian", version = "=0.1.51" }
+v_v8 = { package = "v-common-v8", version = "=0.1.70" }
 
 v_exim = { path = "../v-exim" }

@@ -18,11 +18,11 @@ use serde_json::Value;
 use std::error::Error;
 use std::io::ErrorKind;
 use std::sync::Mutex;
+use v_common::module::module::{init_log_with_filter, Module};
+use v_common::module::veda_backend::Backend;
+use v_common::onto::individual::{Individual, RawObj};
+use v_common::v_api::api_client::APIClient;
 use v_exim::*;
-use v_module::module::*;
-use v_module::v_api::*;
-use v_module::veda_backend::Backend;
-use v_onto::individual::{Individual, RawObj};
 use v_queue::consumer::Consumer;
 use v_queue::record::ErrorQueue;
 
