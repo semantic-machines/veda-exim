@@ -67,6 +67,7 @@ pub fn is_exportable(
     for el in super_classes {
         rdf_types.push(el);
     }
+    rdf_types.push("rdfs:Resource".to_owned());
 
     let mut sh_g_vars = G_VARS.lock().unwrap();
     let g_vars = sh_g_vars.get_mut();

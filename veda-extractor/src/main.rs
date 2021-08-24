@@ -163,17 +163,19 @@ fn prepare(backend: &mut Backend, ctx: &mut Context, queue_element: &mut Individ
     get_inner_binobj_as_individual(queue_element, "new_state", &mut new_state);
 
     let user_id = queue_element.get_first_literal("user_uri").unwrap_or_default();
+    let id = queue_element.get_first_literal("uri").unwrap_or_default();
 
     let date = queue_element.get_first_integer("date");
     //    if date.is_none() {
     //        return Ok(());
     //    }
-    prepare_indv(backend, ctx, cmd.unwrap(), Some(&mut prev_state), &mut new_state, &user_id, date.unwrap_or_default(), &queue_element.get_id())
+    prepare_indv(backend, ctx, &id, cmd.unwrap(), Some(&mut prev_state), &mut new_state, &user_id, date.unwrap_or_default(), &queue_element.get_id())
 }
 
 fn prepare_indv(
     backend: &mut Backend,
     ctx: &mut Context,
+    id: &str,
     cmd: IndvOp,
     prev_state: Option<&mut Individual>,
     new_state: &mut Individual,
@@ -198,13 +200,13 @@ fn prepare_indv(
                     indv.add_binary("v-s:fileData", f);
                 }
             }
-            let res = add_to_queue(&mut ctx.queue_out, cmd.clone(), indv, msg_id, &ctx.db_id, &el.target, date, el.enable_scripts);
+            let res = add_to_queue(id, &mut ctx.queue_out, cmd.clone(), indv, msg_id, &ctx.db_id, &el.target, date, el.enable_scripts);
             if let Err(e) = res {
                 error!("fail prepare message, err={:?}", e);
                 return Err(PrepareError::Fatal);
             }
         } else {
-            let res = add_to_queue(&mut ctx.queue_out, cmd.clone(), new_state, msg_id, &ctx.db_id, &el.target, date, el.enable_scripts);
+            let res = add_to_queue(id, &mut ctx.queue_out, cmd.clone(), new_state, msg_id, &ctx.db_id, &el.target, date, el.enable_scripts);
             if let Err(e) = res {
                 error!("fail prepare message, err={:?}", e);
                 return Err(PrepareError::Fatal);
@@ -216,6 +218,7 @@ fn prepare_indv(
 }
 
 fn add_to_queue(
+    id: &str,
     queue_out: &mut Queue,
     cmd: IndvOp,
     new_state_indv: &mut Individual,
@@ -231,14 +234,17 @@ fn add_to_queue(
     if to_msgpack(&new_state_indv, &mut raw).is_ok() {
         let mut new_indv = Individual::default();
         new_indv.set_id(msg_id);
-        new_indv.add_binary("new_state", raw);
-        new_indv.add_integer("cmd", cmd as i64);
+        new_indv.add_uri("uri", id);
+        if !new_state_indv.is_empty() {
+            new_indv.add_binary("new_state", raw);
+        }
+        new_indv.add_integer("cmd", cmd.to_i64());
         new_indv.add_integer("date", date);
         new_indv.add_string("source_veda", source, Lang::NONE);
         new_indv.add_string("target_veda", target, Lang::NONE);
         new_indv.add_bool("enable_scripts", enable_scripts);
 
-        info!("add to export queue: uri={}, source={}, target={}, enable_scripts={}", new_state_indv.get_id(), &source, &target, enable_scripts);
+        info!("export: cmd={}, uri={}, src={}, target={}, enable_scripts={}", cmd.as_string(), id, &source, &target, enable_scripts);
 
         let mut raw1: Vec<u8> = Vec::new();
         if let Err(e) = to_msgpack(&new_indv, &mut raw1) {
@@ -263,7 +269,7 @@ fn export_from_query(query: &str, backend: &mut Backend, ctx: &mut Context) -> R
         for id in &res.result {
             if let Some(mut indv) = backend.get_individual(id, &mut Individual::default()) {
                 let msg_id = indv.get_id().to_string();
-                prepare_indv(backend, ctx, IndvOp::Put, None, &mut indv, "", 0, &msg_id)?;
+                prepare_indv(backend, ctx, &indv.get_id().to_string(), IndvOp::Put, None, &mut indv, "", 0, &msg_id)?;
             }
         }
     }

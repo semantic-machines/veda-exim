@@ -18,16 +18,15 @@ use std::io::ErrorKind;
 use std::io::Write;
 use std::{thread, time};
 use uuid::*;
+use v_common::module::veda_backend::Backend;
+use v_common::onto::datatype::Lang;
+use v_common::onto::individual::{Individual, RawObj};
+use v_common::onto::individual2msgpack::to_msgpack;
+use v_common::onto::parser::parse_raw;
+use v_common::v_api::api_client::{APIClient, IndvOp, ALL_MODULES};
+use v_common::v_api::obj::ResultCode;
 use v_queue::consumer::*;
 use v_queue::record::*;
-use v_common::v_api::api_client::{IndvOp, APIClient, ALL_MODULES};
-use v_common::onto::datatype::Lang;
-use v_common::v_api::obj::ResultCode;
-use v_common::onto::individual::{RawObj, Individual};
-use v_common::onto::parser::parse_raw;
-use v_common::onto::individual2msgpack::to_msgpack;
-use v_common::module::veda_backend::Backend;
-
 
 const TRANSMIT_FAILED: i64 = 32;
 
@@ -216,7 +215,7 @@ pub fn create_export_message(queue_element: &mut Individual, node_id: &str) -> R
                 new_indv.set_id(indv.get_id());
                 new_indv.add_uri("uri", indv.get_id());
                 new_indv.add_binary("new_state", raw);
-                new_indv.add_integer("cmd", cmd as i64);
+                new_indv.add_integer("cmd", cmd.to_i64());
                 new_indv.add_integer("date", date.unwrap_or_default());
                 new_indv.add_string("source_veda", &source_veda.unwrap_or_default(), Lang::NONE);
                 new_indv.add_string("target_veda", &target_veda, Lang::NONE);
@@ -290,92 +289,97 @@ impl IOResult {
     }
 }
 
-pub fn processing_imported_message(my_node_id: &str, recv_indv: &mut Individual, systicket: &str, veda_api: &mut APIClient) -> IOResult {
-    let wcmd = recv_indv.get_first_integer("cmd");
+pub fn processing_imported_message(my_node_id: &str, recv_msg: &mut Individual, systicket: &str, veda_api: &mut APIClient) -> IOResult {
+    let wcmd = recv_msg.get_first_integer("cmd");
     if wcmd.is_none() {
-        return IOResult::new(recv_indv.get_id(), ExImCode::InvalidCmd);
+        return IOResult::new(recv_msg.get_id(), ExImCode::InvalidCmd);
     }
     let cmd = IndvOp::from_i64(wcmd.unwrap_or_default());
 
-    let source_veda = recv_indv.get_first_literal("source_veda");
+    let source_veda = recv_msg.get_first_literal("source_veda");
     if source_veda.is_none() {
-        return IOResult::new(recv_indv.get_id(), ExImCode::InvalidTarget);
+        return IOResult::new(recv_msg.get_id(), ExImCode::InvalidTarget);
     }
 
     let source_veda = source_veda.unwrap_or_default();
     if source_veda.len() < 32 {
-        return IOResult::new(recv_indv.get_id(), ExImCode::InvalidTarget);
+        return IOResult::new(recv_msg.get_id(), ExImCode::InvalidTarget);
     }
 
-    let target_veda = recv_indv.get_first_literal("target_veda");
+    let target_veda = recv_msg.get_first_literal("target_veda");
     if target_veda.is_none() {
-        return IOResult::new(recv_indv.get_id(), ExImCode::InvalidTarget);
+        return IOResult::new(recv_msg.get_id(), ExImCode::InvalidTarget);
     }
     let target_veda = target_veda.unwrap();
 
     if target_veda != "*" && my_node_id != target_veda {
-        return IOResult::new(recv_indv.get_id(), ExImCode::InvalidTarget);
+        return IOResult::new(recv_msg.get_id(), ExImCode::InvalidTarget);
     }
 
-    let enable_scripts = recv_indv.get_first_bool("enable_scripts").unwrap_or(false);
+    let enable_scripts = recv_msg.get_first_bool("enable_scripts").unwrap_or(false);
 
-    let new_state = recv_indv.get_first_binobj("new_state");
-    if cmd != IndvOp::Remove && new_state.is_some() {
-        let mut indv = Individual::new_raw(RawObj::new(new_state.unwrap_or_default()));
-        if parse_raw(&mut indv).is_ok() {
-            indv.parse_all();
+    let new_state = recv_msg.get_first_binobj("new_state");
 
-            if indv.any_exists("sys:source", &[my_node_id]) {
-                indv.remove("sys:source");
-            } else {
-                indv.add_uri("sys:source", &source_veda);
+    let mut indv = Individual::new_raw(RawObj::new(new_state.unwrap_or_default()));
+    if parse_raw(&mut indv).is_ok() {
+        indv.parse_all();
+
+        if indv.any_exists("sys:source", &[my_node_id]) {
+            indv.remove("sys:source");
+        } else {
+            indv.add_uri("sys:source", &source_veda);
+        }
+
+        if cmd == IndvOp::Remove {
+            if let Some(id) = recv_msg.get_first_literal("uri") {
+                indv.set_id(&id);
             }
+        }
 
-            if indv.any_exists("rdf:type", &["v-s:File"]) {
-                if let Some(file_data) = indv.get_first_binobj("v-s:fileData") {
-                    let src_dir_path = "data/files".to_owned() + &indv.get_first_literal("v-s:filePath").unwrap_or_default();
+        if indv.any_exists("rdf:type", &["v-s:File"]) {
+            if let Some(file_data) = indv.get_first_binobj("v-s:fileData") {
+                let src_dir_path = "data/files".to_owned() + &indv.get_first_literal("v-s:filePath").unwrap_or_default();
 
-                    if let Err(e) = create_dir_all(src_dir_path.clone()) {
-                        error!("fail create path: {:?}", e);
-                    }
-
-                    let src_full_path = src_dir_path + "/" + &indv.get_first_literal("v-s:fileUri").unwrap_or_default();
-
-                    match File::create(src_full_path.clone()) {
-                        Ok(mut ofile) => {
-                            if let Err(e) = ofile.write_all(&file_data) {
-                                error!("fail write file: {:?}", e);
-                            } else {
-                                info!("success create file {}", src_full_path);
-                            }
-                        }
-                        Err(e) => {
-                            error!("fail create file: {:?}", e);
-                        }
-                    }
-                    indv.remove("v-s:fileData");
+                if let Err(e) = create_dir_all(src_dir_path.clone()) {
+                    error!("fail create path: {:?}", e);
                 }
+
+                let src_full_path = src_dir_path + "/" + &indv.get_first_literal("v-s:fileUri").unwrap_or_default();
+
+                match File::create(src_full_path.clone()) {
+                    Ok(mut ofile) => {
+                        if let Err(e) = ofile.write_all(&file_data) {
+                            error!("fail write file: {:?}", e);
+                        } else {
+                            info!("success create file {}", src_full_path);
+                        }
+                    }
+                    Err(e) => {
+                        error!("fail create file: {:?}", e);
+                    }
+                }
+                indv.remove("v-s:fileData");
             }
+        }
 
-            let src = if enable_scripts {
-                "?"
-            } else {
-                "exim"
-            };
+        let src = if enable_scripts {
+            "?"
+        } else {
+            "exim"
+        };
 
-            let res = veda_api.update_use_param(systicket, "exim", "?", ALL_MODULES, cmd, &indv);
+        let res = veda_api.update_use_param(systicket, "exim", "?", ALL_MODULES, cmd, &indv);
 
-            if res.result != ResultCode::Ok {
-                error!("fail update, uri={}, result_code={:?}", recv_indv.get_id(), res.result);
-                return IOResult::new(recv_indv.get_id(), ExImCode::FailUpdate);
-            } else {
-                info!("get from {}, success update, src={}, uri={}", source_veda, src, recv_indv.get_id());
-                return IOResult::new(recv_indv.get_id(), ExImCode::Ok);
-            }
+        if res.result != ResultCode::Ok {
+            error!("fail update, uri={}, result_code={:?}", recv_msg.get_id(), res.result);
+            return IOResult::new(recv_msg.get_id(), ExImCode::FailUpdate);
+        } else {
+            info!("get from {}, success update, src={}, uri={}", source_veda, src, recv_msg.get_id());
+            return IOResult::new(recv_msg.get_id(), ExImCode::Ok);
         }
     }
 
-    IOResult::new(recv_indv.get_id(), ExImCode::FailUpdate)
+    IOResult::new(recv_msg.get_id(), ExImCode::FailUpdate)
 }
 
 pub fn load_linked_nodes(backend: &mut Backend, node_upd_counter: &mut i64, link_node_addresses: &mut HashMap<String, String>) {

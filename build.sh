@@ -2,6 +2,7 @@ BUILD_PATH=$PWD
 
 mkdir ./bin
 VEDA_BIN=$BUILD_PATH/bin
+export CARGO_TARGET_DIR=$HOME/target
 
 if [ $1 == "exim-inquire" ] || [ $1 == "veda-exim-inquire" ] || [ $1 == "exim" ] || [ -z $1 ]; then
     echo BUILD EXIM-INQUIRE
