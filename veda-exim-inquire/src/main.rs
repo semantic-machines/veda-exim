@@ -67,13 +67,16 @@ fn main() -> std::io::Result<()> {
                 loop {
                     match recv_import_message(&my_node_id, &exim_resp_api) {
                         Ok(recv_msg) => {
-                            if let Ok(mut recv_indv) = decode_message(&recv_msg) {
-                                let res = processing_imported_message(&my_node_id, &mut recv_indv, &sys_ticket, &mut backend.api);
+                            if let Ok(mut recv_pack) = decode_message(&recv_msg) {
+                                if recv_pack.is_empty() {
+                                    break;
+                                }
+                                let res = processing_imported_message(&my_node_id, &mut recv_pack, &sys_ticket, &mut backend.api);
                                 if res.res_code != ExImCode::Ok {
                                     error!("fail accept changes, uri={}, err={:?}, recv_msg={:?}", res.id, res.res_code, recv_msg);
                                 } else {
                                     sleep_time = 1000;
-                                    info!("get {} form node {}", recv_indv.get_id(), consumer_name);
+                                    info!("get {} form node {}", recv_pack.get_id(), consumer_name);
                                 }
                             }
                         }

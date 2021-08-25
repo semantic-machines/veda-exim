@@ -203,6 +203,12 @@ pub fn create_export_message(queue_element: &mut Individual, node_id: &str) -> R
             return Err(ExImCode::InvalidMessage);
         }
 
+        let wid = queue_element.get_first_literal("uri");
+        if wid.is_none() {
+            return Err(ExImCode::InvalidMessage);
+        }
+        let id = wid.unwrap_or_default();
+
         let enable_scripts = queue_element.get_first_bool("enable_scripts").unwrap_or(false);
 
         let mut indv = Individual::new_raw(RawObj::new(new_state.unwrap_or_default()));
@@ -211,17 +217,17 @@ pub fn create_export_message(queue_element: &mut Individual, node_id: &str) -> R
 
             let mut raw: Vec<u8> = Vec::new();
             if to_msgpack(&indv, &mut raw).is_ok() {
-                let mut new_indv = Individual::default();
-                new_indv.set_id(indv.get_id());
-                new_indv.add_uri("uri", indv.get_id());
-                new_indv.add_binary("new_state", raw);
-                new_indv.add_integer("cmd", cmd.to_i64());
-                new_indv.add_integer("date", date.unwrap_or_default());
-                new_indv.add_string("source_veda", &source_veda.unwrap_or_default(), Lang::NONE);
-                new_indv.add_string("target_veda", &target_veda, Lang::NONE);
-                new_indv.add_bool("enable_scripts", enable_scripts);
+                let mut new_msg = Individual::default();
+                new_msg.set_id(&format!("{}_{}", cmd.as_string(), &id));
+                new_msg.add_uri("uri", &id);
+                new_msg.add_binary("new_state", raw);
+                new_msg.add_integer("cmd", cmd.to_i64());
+                new_msg.add_integer("date", date.unwrap_or_default());
+                new_msg.add_string("source_veda", &source_veda.unwrap_or_default(), Lang::NONE);
+                new_msg.add_string("target_veda", &target_veda, Lang::NONE);
+                new_msg.add_bool("enable_scripts", enable_scripts);
 
-                return Ok(new_indv);
+                return Ok(new_msg);
             }
             // info! ("{:?}", raw);
         }
@@ -243,6 +249,9 @@ pub fn decode_message(src: &JSONValue) -> Result<Individual, Box<dyn Error>> {
     if let Some(props) = src.as_object() {
         if let Some(msg) = props.get("msg") {
             if let Some(m) = msg.as_str() {
+                if m.is_empty() {
+                    return Ok(Individual::default());
+                }
                 let mut recv_indv = Individual::new_raw(RawObj::new(decode(&m)?));
                 if parse_raw(&mut recv_indv).is_ok() {
                     return Ok(recv_indv);
