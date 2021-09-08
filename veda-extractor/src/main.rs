@@ -61,7 +61,7 @@ fn listen_queue<'a>(js_runtime: &'a mut JsRuntime) -> Result<(), i32> {
 
     let mut backend = Backend::create(StorageMode::ReadOnly, false);
     let mut module = Module::default();
-    while !backend.api.connect() {
+    while !backend.mstorage_api.connect() {
         error!("main module not ready, sleep and repeat");
         thread::sleep(time::Duration::from_millis(1000));
     }

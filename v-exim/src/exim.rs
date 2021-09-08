@@ -23,7 +23,7 @@ use v_common::onto::datatype::Lang;
 use v_common::onto::individual::{Individual, RawObj};
 use v_common::onto::individual2msgpack::to_msgpack;
 use v_common::onto::parser::parse_raw;
-use v_common::v_api::api_client::{APIClient, IndvOp, ALL_MODULES};
+use v_common::v_api::api_client::{MStorageClient, IndvOp, ALL_MODULES};
 use v_common::v_api::obj::ResultCode;
 use v_queue::consumer::*;
 use v_queue::record::*;
@@ -298,7 +298,7 @@ impl IOResult {
     }
 }
 
-pub fn processing_imported_message(my_node_id: &str, recv_msg: &mut Individual, systicket: &str, veda_api: &mut APIClient) -> IOResult {
+pub fn processing_imported_message(my_node_id: &str, recv_msg: &mut Individual, systicket: &str, mstorage_client: &mut MStorageClient) -> IOResult {
     let wcmd = recv_msg.get_first_integer("cmd");
     if wcmd.is_none() {
         return IOResult::new(recv_msg.get_id(), ExImCode::InvalidCmd);
@@ -377,14 +377,15 @@ pub fn processing_imported_message(my_node_id: &str, recv_msg: &mut Individual, 
             "exim"
         };
 
-        let res = veda_api.update_use_param(systicket, "exim", "?", ALL_MODULES, cmd, &indv);
-
-        if res.result != ResultCode::Ok {
-            error!("fail update, uri={}, result_code={:?}", recv_msg.get_id(), res.result);
-            return IOResult::new(recv_msg.get_id(), ExImCode::FailUpdate);
-        } else {
-            info!("get from {}, success update, src={}, uri={}", source_veda, src, recv_msg.get_id());
-            return IOResult::new(recv_msg.get_id(), ExImCode::Ok);
+        match mstorage_client.update_use_param(systicket, "exim", "?", ALL_MODULES, cmd, &indv) {
+            Ok (_) => {
+                info!("get from {}, success update, src={}, uri={}", source_veda, src, recv_msg.get_id());
+                return IOResult::new(recv_msg.get_id(), ExImCode::Ok);
+            }
+            Err(e) => {
+                error!("fail update, uri={}, result_code={:?}", recv_msg.get_id(), e.result);
+                return IOResult::new(recv_msg.get_id(), ExImCode::FailUpdate);
+            }
         }
     }
 
@@ -442,7 +443,7 @@ pub fn create_db_id(backend: &mut Backend) -> Option<String> {
     new_indv.set_id("cfg:system");
     new_indv.add_string("sys:id", &uuid1, Lang::NONE);
 
-    let res = backend.api.update(&systicket, IndvOp::Put, &new_indv);
+    let res = backend.mstorage_api.update(&systicket, IndvOp::Put, &new_indv);
 
     if res.result != ResultCode::Ok {
         error!("fail update, uri={}, result_code={:?}", new_indv.get_id(), res.result);

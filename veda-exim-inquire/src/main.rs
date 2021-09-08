@@ -71,7 +71,7 @@ fn main() -> std::io::Result<()> {
                                 if recv_pack.is_empty() {
                                     break;
                                 }
-                                let res = processing_imported_message(&my_node_id, &mut recv_pack, &sys_ticket, &mut backend.api);
+                                let res = processing_imported_message(&my_node_id, &mut recv_pack, &sys_ticket, &mut backend.mstorage_api);
                                 if res.res_code != ExImCode::Ok {
                                     error!("fail accept changes, uri={}, err={:?}, recv_msg={:?}", res.id, res.res_code, recv_msg);
                                 } else {

@@ -17,6 +17,7 @@ serde_json = "^1.0"
 
 v_queue = "=0.1.9"
 
-v_v8 = { package = "v-common-v8", version = "=0.1.70" }
+
+v_v8 = { package = "v-common-v8", version = "=0.1.73" }
 
 v_exim = { path = "../v-exim" }

@@ -21,7 +21,7 @@ use std::sync::Mutex;
 use v_common::module::module::{init_log_with_filter, Module};
 use v_common::module::veda_backend::Backend;
 use v_common::onto::individual::{Individual, RawObj};
-use v_common::v_api::api_client::APIClient;
+use v_common::v_api::api_client::MStorageClient;
 use v_exim::*;
 use v_queue::consumer::Consumer;
 use v_queue::record::ErrorQueue;
@@ -29,7 +29,7 @@ use v_queue::record::ErrorQueue;
 struct Context {
     node_id: String,
     sys_ticket: String,
-    api: APIClient,
+    api: MStorageClient,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -70,7 +70,7 @@ fn rocket() -> Result<rocket::Rocket, Box<dyn Error>> {
     let ctx = Context {
         node_id,
         sys_ticket,
-        api: APIClient::new(Module::get_property("main_module_url").unwrap_or_default()),
+        api: MStorageClient::new(Module::get_property("main_module_url").unwrap_or_default()),
     };
 
     let config = Config::build(Environment::Staging).address("0.0.0.0").port(exim_respond_port.unwrap().parse::<u16>()?).finalize();

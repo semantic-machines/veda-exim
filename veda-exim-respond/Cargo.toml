@@ -18,11 +18,11 @@ lazy_static = "1.4.0"
 
 v_queue = "=0.1.9"
 
-v_common = { package = "v-common", version = "=0.1.55" }
+v_common = { package = "v-common", version = "=0.1.64" }
 
 v_exim = { path = "../v-exim" }
 
 [dependencies.rocket_contrib]
-version = "0.4.6"
+version = "0.4.10"
 default-features = false
 features = ["json"]
