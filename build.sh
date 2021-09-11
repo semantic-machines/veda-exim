@@ -21,7 +21,7 @@ if [ $1 == "exim-respond" ] || [ $1 == "veda-exim-respond" ] || [ $1 == "exim" ]
     rm ./veda-exim-respond
     cd veda-exim-respond
 
-    cargo +nightly build --release
+    cargo build --release
 
     cd $BUILD_PATH
     cp $CARGO_TARGET_DIR/release/veda-exim-respond $VEDA_BIN

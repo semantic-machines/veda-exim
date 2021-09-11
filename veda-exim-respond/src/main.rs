@@ -1,91 +1,37 @@
-/*
- * Ожидает и обрабатывает сеанс обмена данными с другими системами, является
- * slave частью в протоколе связи
- */
-#![feature(proc_macro_hygiene, decl_macro)]
-
 #[macro_use]
 extern crate log;
-#[macro_use]
-extern crate rocket;
-#[macro_use]
-extern crate rocket_contrib;
-
-use rocket::config::Environment;
-use rocket::{Config, State};
-use rocket_contrib::json::{Json, JsonValue};
+extern crate serde_derive;
+extern crate serde_json;
+use actix_web::App;
+use actix_web::{get, put, HttpResponse};
+use actix_web::{middleware, web, HttpServer};
+use futures::select;
+use futures::FutureExt;
+use serde_derive::{Deserialize, Serialize};
+use serde_json::json;
 use serde_json::Value;
-use std::error::Error;
+use std::io;
 use std::io::ErrorKind;
 use std::sync::Mutex;
-use v_common::module::module::{init_log_with_filter, Module};
+use v_common::module::module::{init_log_with_params, Module};
 use v_common::module::veda_backend::Backend;
 use v_common::onto::individual::{Individual, RawObj};
 use v_common::v_api::api_client::MStorageClient;
 use v_exim::*;
+use v_exim::{create_export_message, decode_message, encode_message, processing_imported_message};
 use v_queue::consumer::Consumer;
 use v_queue::record::ErrorQueue;
 
-struct Context {
-    node_id: String,
-    sys_ticket: String,
-    api: MStorageClient,
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
+pub(crate) struct RemoteNodeId {
+    pub(crate) remote_node_id: String,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    init_log_with_filter("EXIM_RESPOND", None /*Some("error,rocket=error,exim=info")*/);
-    rocket()?.launch();
-
-    Ok(())
-}
-
-fn rocket() -> Result<rocket::Rocket, Box<dyn Error>> {
-    info!("START EXIM RESPOND");
-    let mut backend = Backend::default();
-
-    let param_name = "exim_respond_port";
-    let exim_respond_port = Module::get_property(param_name);
-    if exim_respond_port.is_none() {
-        return Err(Box::new(std::io::Error::new(ErrorKind::NotFound, format!("not found param {} in properties file", param_name))));
-    }
-
-    let sys_ticket;
-    if let Ok(t) = backend.get_sys_ticket_id() {
-        sys_ticket = t;
-    } else {
-        return Err(Box::new(std::io::Error::new(ErrorKind::NotFound, format!("fail get system ticket"))));
-    }
-
-    let mut node_id = get_db_id(&mut backend);
-    if node_id.is_none() {
-        node_id = create_db_id(&mut backend);
-    }
-
-    if node_id.is_none() {
-        return Err(Box::new(std::io::Error::new(ErrorKind::NotFound, format!("fail create node_id"))));
-    }
-    let node_id = node_id.unwrap();
-    info!("my node_id={}", node_id);
-
-    let ctx = Context {
-        node_id,
-        sys_ticket,
-        api: MStorageClient::new(Module::get_property("main_module_url").unwrap_or_default()),
-    };
-
-    let config = Config::build(Environment::Staging).address("0.0.0.0").port(exim_respond_port.unwrap().parse::<u16>()?).finalize();
-    if config.is_err() {
-        return Err(Box::new(std::io::Error::new(ErrorKind::Other, format!("fail config"))));
-    }
-    let config = config.unwrap();
-    Ok(rocket::custom(config).mount("/", routes![import_delta, export_delta]).register(catchers![not_found]).manage(Mutex::new(ctx)))
-}
-
-#[get("/export_delta/<remote_node_id>", format = "text/html")]
-fn export_delta(remote_node_id: String, _in_ctx: State<Mutex<Context>>) -> Option<JsonValue> {
+#[get("/export_delta/{remote_node_id}")]
+async fn export_delta(params: web::Query<RemoteNodeId>) -> io::Result<HttpResponse> {
     // this request changes from master
     // читаем элемент очереди, создаем обьект и отправляем на server
-    let consumer_name = format!("r_{}", remote_node_id.replace(":", "_"));
+    let consumer_name = format!("r_{}", params.remote_node_id.replace(":", "_"));
     let mut queue_consumer = Consumer::new("./data/out", &consumer_name, "extract").expect("!!!!!!!!! FAIL QUEUE");
 
     if let Err(e) = queue_consumer.queue.get_info_of_part(queue_consumer.id, true) {
@@ -105,11 +51,11 @@ fn export_delta(remote_node_id: String, _in_ctx: State<Mutex<Context>>) -> Optio
             }
         } else {
             let queue_element = &mut Individual::new_raw(raw);
-            match create_export_message(queue_element, &remote_node_id) {
+            match create_export_message(queue_element, &params.remote_node_id) {
                 Ok(mut out_obj) => {
                     if let Ok(msg) = encode_message(&mut out_obj) {
                         queue_consumer.commit_and_next();
-                        return Some(msg.into());
+                        return Ok(HttpResponse::Ok().json(msg));
                     } else {
                         error!("fail encode out message");
                     }
@@ -125,27 +71,83 @@ fn export_delta(remote_node_id: String, _in_ctx: State<Mutex<Context>>) -> Optio
         }
     }
 
-    Some(json!({"msg": ""}))
+    Ok(HttpResponse::Ok().json(json!({"msg": ""})))
 }
 
-#[put("/import_delta", format = "json", data = "<msg>")]
-fn import_delta(msg: Json<Value>, in_ctx: State<Mutex<Context>>) -> Option<JsonValue> {
-    let mut q = in_ctx.lock();
-    let ctx = q.as_mut().unwrap();
-    let node_id = ctx.node_id.to_owned();
-    let sys_ticket = ctx.sys_ticket.to_owned();
+#[put("/import_delta")]
+async fn import_delta(msg: web::Json<Value>, mstorage: web::Data<Mutex<MStorageClient>>, ctx: web::Data<Context>) -> io::Result<HttpResponse> {
+    let node_id = ctx.node_id.clone();
+    let sys_ticket = ctx.sys_ticket.clone();
 
     if let Ok(mut recv_indv) = decode_message(&msg.0) {
-        let res = processing_imported_message(&node_id, &mut recv_indv, &sys_ticket, &mut ctx.api);
-        return Some(json!(res));
+        let res = processing_imported_message(&node_id, &mut recv_indv, &sys_ticket, &mut mstorage.lock().unwrap());
+        return Ok(HttpResponse::Ok().json(res));
     }
-    None
+    Ok(HttpResponse::Ok().finish())
 }
 
-#[catch(404)]
-fn not_found() -> JsonValue {
-    json!({
-        "status": "error",
-        "reason": "Resource was not found."
+struct Context {
+    node_id: String,
+    sys_ticket: String,
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
+    init_log_with_params("EXIM RESPOND", None, true);
+    info!("START EXIM RESPOND");
+    let mut backend = Backend::default();
+
+    let param_name = "exim_respond_port";
+    let exim_respond_port = Module::get_property(param_name);
+    if exim_respond_port.is_none() {
+        return Err(std::io::Error::new(ErrorKind::NotFound, format!("not found param {} in properties file", param_name)));
+    }
+
+    let sys_ticket;
+    if let Ok(t) = backend.get_sys_ticket_id() {
+        sys_ticket = t;
+    } else {
+        return Err(std::io::Error::new(ErrorKind::NotFound, format!("fail get system ticket")));
+    }
+
+    let mut node_id = get_db_id(&mut backend);
+    if node_id.is_none() {
+        node_id = create_db_id(&mut backend);
+    }
+
+    if node_id.is_none() {
+        return Err(std::io::Error::new(ErrorKind::NotFound, format!("fail create node_id")));
+    }
+    let node_id = node_id.unwrap();
+    info!("my node_id={}", node_id);
+
+    let mut server_future = HttpServer::new(move || {
+        App::new()
+            .wrap(middleware::Compress::default())
+            .wrap(
+                middleware::DefaultHeaders::new()
+                    .header("Server", "nginx/1.19.6")
+                    .header("X-XSS-Protection", "1; mode=block")
+                    .header("X-Content-Type-Options", "nosniff")
+                    .header("X-Frame-Options", "sameorigin")
+                    .header("Cache-Control", "no-cache, no-store, must-revalidate, private"),
+            )
+            .data(Context {
+                node_id: node_id.clone(),
+                sys_ticket: sys_ticket.clone(),
+            })
+            .data(Mutex::new(MStorageClient::new(Module::get_property("main_module_url").unwrap_or_default())))
+            .service(export_delta)
+            .service(import_delta)
     })
+    .bind(format!("0.0.0.0:{}", exim_respond_port.unwrap().parse::<u16>().unwrap_or(5588)))?
+    .run()
+    .fuse();
+
+    select! {
+        _r = server_future => println!("Server is stopped!"),
+    };
+
+    Ok(())
 }
