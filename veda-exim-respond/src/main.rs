@@ -5,14 +5,13 @@ extern crate serde_json;
 use actix_web::App;
 use actix_web::{get, put, HttpResponse};
 use actix_web::{middleware, web, HttpServer};
+use futures::lock::Mutex;
 use futures::select;
 use futures::FutureExt;
-use serde_derive::{Deserialize, Serialize};
 use serde_json::json;
 use serde_json::Value;
 use std::io;
 use std::io::ErrorKind;
-use std::sync::Mutex;
 use v_common::module::module::{init_log_with_params, Module};
 use v_common::module::veda_backend::Backend;
 use v_common::onto::individual::{Individual, RawObj};
@@ -22,16 +21,11 @@ use v_exim::{create_export_message, decode_message, encode_message, processing_i
 use v_queue::consumer::Consumer;
 use v_queue::record::ErrorQueue;
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
-pub(crate) struct RemoteNodeId {
-    pub(crate) remote_node_id: String,
-}
-
 #[get("/export_delta/{remote_node_id}")]
-async fn export_delta(params: web::Query<RemoteNodeId>) -> io::Result<HttpResponse> {
+async fn export_delta(web::Path(remote_node_id): web::Path<String>) -> io::Result<HttpResponse> {
     // this request changes from master
     // читаем элемент очереди, создаем обьект и отправляем на server
-    let consumer_name = format!("r_{}", params.remote_node_id.replace(":", "_"));
+    let consumer_name = format!("r_{}", remote_node_id.replace(":", "_"));
     let mut queue_consumer = Consumer::new("./data/out", &consumer_name, "extract").expect("!!!!!!!!! FAIL QUEUE");
 
     if let Err(e) = queue_consumer.queue.get_info_of_part(queue_consumer.id, true) {
@@ -51,7 +45,7 @@ async fn export_delta(params: web::Query<RemoteNodeId>) -> io::Result<HttpRespon
             }
         } else {
             let queue_element = &mut Individual::new_raw(raw);
-            match create_export_message(queue_element, &params.remote_node_id) {
+            match create_export_message(queue_element, &remote_node_id) {
                 Ok(mut out_obj) => {
                     if let Ok(msg) = encode_message(&mut out_obj) {
                         queue_consumer.commit_and_next();
@@ -80,7 +74,8 @@ async fn import_delta(msg: web::Json<Value>, mstorage: web::Data<Mutex<MStorageC
     let sys_ticket = ctx.sys_ticket.clone();
 
     if let Ok(mut recv_indv) = decode_message(&msg.0) {
-        let res = processing_imported_message(&node_id, &mut recv_indv, &sys_ticket, &mut mstorage.lock().unwrap());
+        let mut ms = mstorage.lock().await;
+        let res = processing_imported_message(&node_id, &mut recv_indv, &sys_ticket, &mut ms);
         return Ok(HttpResponse::Ok().json(res));
     }
     Ok(HttpResponse::Ok().finish())

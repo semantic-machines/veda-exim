@@ -130,6 +130,7 @@ pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configurat
 
             let mut queue_element = &mut Individual::new_raw(raw);
 
+            let mut res = ExImCode::SendFailed;
             for attempt_count in 0..10 {
                 let msg = create_export_message(&mut queue_element, node_id);
 
@@ -138,30 +139,36 @@ pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configurat
                         if let Err(e) = send_export_message(&mut msg, resp_api) {
                             error!("fail send export message, err={:?}, attempt_count={}", e, attempt_count);
 
-                            if attempt_count == 10 {
-                                return (count_sent, ExImCode::SendFailed);
+                            if attempt_count >= 9 {
+                                res = ExImCode::SendFailed;
+                                break;
                             }
                         } else {
                             count_sent += 1;
+                            res = ExImCode::Ok;
                             break;
                         }
                     }
                     Err(e) => {
                         if e == ExImCode::Ok {
+                            res = e;
                             break;
                         }
                         error!("fail create export message, err={:?}", e);
-                        return (count_sent, ExImCode::InvalidMessage);
+                        res = ExImCode::InvalidMessage;
+                        break;
                     }
                 }
 
                 thread::sleep(time::Duration::from_millis(attempt_count * 100));
             }
 
-            queue_consumer.commit_and_next();
+            if res == ExImCode::Ok {
+                queue_consumer.commit_and_next();
 
-            if total_prepared_count % 1000 == 0 {
-                info!("get from queue, count: {}", total_prepared_count);
+                if total_prepared_count % 1000 == 0 {
+                    info!("get from queue, count: {}", total_prepared_count);
+                }
             }
         }
     }
