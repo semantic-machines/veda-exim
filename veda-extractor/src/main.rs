@@ -29,7 +29,7 @@ use v_v8::v_common::onto::individual::Individual;
 use v_v8::v_common::onto::individual2msgpack::to_msgpack;
 use v_v8::v_common::onto::onto::Onto;
 use v_v8::v_common::search::common::FTQuery;
-use v_v8::v_common::storage::storage::StorageMode;
+use v_v8::v_common::storage::common::StorageMode;
 use v_v8::v_common::v_api::api_client::IndvOp;
 use v_v8::v_common::v_api::obj::ResultCode;
 

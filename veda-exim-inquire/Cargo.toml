@@ -2,7 +2,7 @@
 name = "veda-exim-inquire"
 version = "0.1.0"
 authors = ["Valeriy Bushenev <ValeriyBushenev@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [[bin]]
 name = "veda-exim-inquire"
@@ -13,6 +13,7 @@ log = "0.4"
 
 v_queue = "=0.1.9"
 
-v_common = { package = "v-common", version = "=0.1.65" }
+v_common = { package = "v-common", version = "=0.1.91" }
+#v_common = { package = "v-common", path = "../../../v-common" }
 
 v_exim = { path = "../v-exim" }

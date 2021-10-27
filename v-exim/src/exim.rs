@@ -23,7 +23,7 @@ use v_common::onto::datatype::Lang;
 use v_common::onto::individual::{Individual, RawObj};
 use v_common::onto::individual2msgpack::to_msgpack;
 use v_common::onto::parser::parse_raw;
-use v_common::v_api::api_client::{MStorageClient, IndvOp, ALL_MODULES};
+use v_common::v_api::api_client::{IndvOp, MStorageClient, ALL_MODULES};
 use v_common::v_api::obj::ResultCode;
 use v_queue::consumer::*;
 use v_queue::record::*;
@@ -122,12 +122,10 @@ pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configurat
 
             // заголовок взят успешно, занесем содержимое сообщения в структуру Individual
             if let Err(e) = queue_consumer.pop_body(&mut raw.data) {
-                if e == ErrorQueue::FailReadTailMessage {
-                    break;
-                } else {
+                if e != ErrorQueue::FailReadTailMessage {
                     error!("{} get msg from queue: {}", total_prepared_count, e.as_str());
-                    break;
                 }
+                break;
             }
 
             let mut queue_element = &mut Individual::new_raw(raw);
@@ -239,7 +237,7 @@ pub fn encode_message(out_obj: &mut Individual) -> Result<JSONValue, Box<dyn Err
     out_obj.parse_all();
 
     let mut raw1: Vec<u8> = Vec::new();
-    to_msgpack(&out_obj, &mut raw1)?;
+    to_msgpack(out_obj, &mut raw1)?;
     let msg_base64 = encode(raw1.as_slice());
 
     Ok(json!({ "msg": &msg_base64 }))
@@ -378,7 +376,7 @@ pub fn processing_imported_message(my_node_id: &str, recv_msg: &mut Individual, 
         };
 
         match mstorage_client.update_use_param(systicket, "exim", "?", ALL_MODULES, cmd, &indv) {
-            Ok (_) => {
+            Ok(_) => {
                 info!("get from {}, success update, src={}, uri={}", source_veda, src, recv_msg.get_id());
                 return IOResult::new(recv_msg.get_id(), ExImCode::Ok);
             }
@@ -440,11 +438,17 @@ pub fn create_db_id(backend: &mut Backend) -> Option<String> {
     info!("create new db id = {}", uuid1);
 
     let mut new_indv = Individual::default();
+    new_indv.set_id(&uuid1);
+    new_indv.add_uri("rdf:type", "sys:Node");
+    if backend.mstorage_api.update(&systicket, IndvOp::Put, &new_indv).result != ResultCode::Ok {
+        error!("fail create, uri={}", new_indv.get_id());
+        return None;
+    }
+
+    new_indv = Individual::default();
     new_indv.set_id("cfg:system");
     new_indv.add_string("sys:id", &uuid1, Lang::NONE);
-
     let res = backend.mstorage_api.update(&systicket, IndvOp::Put, &new_indv);
-
     if res.result != ResultCode::Ok {
         error!("fail update, uri={}, result_code={:?}", new_indv.get_id(), res.result);
     } else {
