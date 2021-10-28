@@ -8,6 +8,7 @@ pub mod configuration;
 use crate::configuration::Configuration;
 
 use base64::{decode, encode};
+use http::StatusCode;
 use num_traits::{FromPrimitive, ToPrimitive};
 use serde_json::json;
 use serde_json::value::Value as JSONValue;
@@ -169,6 +170,8 @@ pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configurat
                 if total_prepared_count % 1000 == 0 {
                     info!("get from queue, count: {}", total_prepared_count);
                 }
+            } else {
+                return (count_sent, res);
             }
         }
     }
@@ -272,6 +275,10 @@ fn send_export_message(out_obj: &mut Individual, resp_api: &Configuration) -> Re
     let uri_str = format!("{}/import_delta", resp_api.base_path);
 
     let res = resp_api.client.put(&uri_str).json(&encode_message(out_obj)?).send()?;
+
+    if res.status() != StatusCode::OK {
+        error!("responce status ={}", res.status());
+    }
 
     let jj: IOResult = res.json()?;
     info!("sucess send export message: res={:?}, id={}", jj.res_code, out_obj.get_id());

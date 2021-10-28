@@ -118,7 +118,9 @@ async fn main() -> std::io::Result<()> {
     info!("my node_id={}", node_id);
 
     let mut server_future = HttpServer::new(move || {
+        let json_cfg = web::JsonConfig::default().limit(1024*1024);
         App::new()
+            .app_data(json_cfg)
             .wrap(middleware::Compress::default())
             .wrap(
                 middleware::DefaultHeaders::new()
