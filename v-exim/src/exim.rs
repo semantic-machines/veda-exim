@@ -165,7 +165,7 @@ pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configurat
             }
 
             if res == ExImCode::Ok {
-                queue_consumer.commit_and_next();
+                queue_consumer.commit();
 
                 if total_prepared_count % 1000 == 0 {
                     info!("get from queue, count: {}", total_prepared_count);

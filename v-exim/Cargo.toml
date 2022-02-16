@@ -19,7 +19,7 @@ serde_json = "1.0"
 base64 = "0.13.0"
 http = "0.2.5"
 
-v_queue = "=0.1.9"
-v_common = { package = "v-common", version = "=0.1.92" }
+v_queue = "=0.2.1"
+v_common = { package = "v-common", version = "0.1.106" }
 #v_common = { package = "v-common", path = "../../v-common" }
 

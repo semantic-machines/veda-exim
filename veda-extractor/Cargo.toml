@@ -15,9 +15,9 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_derive = "1.0"
 serde_json = "^1.0"
 
-v_queue = "=0.1.9"
+v_queue = "=0.2.1"
 
 
-v_v8 = { package = "v-common-v8", version = "=0.1.83" }
+v_v8 = { package = "v-common-v8", version = "0.1.94" }
 
 v_exim = { path = "../v-exim" }
