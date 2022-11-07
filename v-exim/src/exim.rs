@@ -231,8 +231,8 @@ pub fn create_export_message(queue_element: &mut Individual, node_id: &str) -> R
                 new_msg.add_binary("new_state", raw);
                 new_msg.add_integer("cmd", cmd.to_i64());
                 new_msg.add_integer("date", date.unwrap_or_default());
-                new_msg.add_string("source_veda", &source_veda.unwrap_or_default(), Lang::NONE);
-                new_msg.add_string("target_veda", &target_veda, Lang::NONE);
+                new_msg.add_string("source_veda", &source_veda.unwrap_or_default(), Lang::none());
+                new_msg.add_string("target_veda", &target_veda, Lang::none());
                 new_msg.add_bool("enable_scripts", enable_scripts);
 
                 return Ok(new_msg);
@@ -461,7 +461,7 @@ pub fn create_db_id(backend: &mut Backend) -> Option<String> {
 
     new_indv = Individual::default();
     new_indv.set_id("cfg:system");
-    new_indv.add_string("sys:id", &uuid1, Lang::NONE);
+    new_indv.add_string("sys:id", &uuid1, Lang::none());
     let res = backend.mstorage_api.update(&systicket, IndvOp::Put, &new_indv);
     if res.result != ResultCode::Ok {
         error!("fail update, uri={}, result_code={:?}", new_indv.get_id(), res.result);

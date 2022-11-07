@@ -8,7 +8,7 @@ extern crate log;
 
 use std::collections::HashMap;
 use std::{thread, time};
-use v_common::module::module::init_log;
+use v_common::module::module_impl::init_log;
 use v_common::module::veda_backend::Backend;
 use v_common::storage::common::StorageMode;
 use v_exim::configuration::Configuration;

@@ -21,13 +21,13 @@ use v_v8::scripts_workplace::ScriptsWorkPlace;
 use v_v8::v_common::ft_xapian::xapian_reader::XapianReader;
 use v_v8::v_common::module::common::load_onto;
 use v_v8::v_common::module::info::ModuleInfo;
-use v_v8::v_common::module::module::{get_cmd, get_inner_binobj_as_individual, init_log, Module, PrepareError};
+use v_v8::v_common::module::module_impl::{get_cmd, get_inner_binobj_as_individual, init_log, Module, PrepareError};
 use v_v8::v_common::module::remote_indv_r_storage::inproc_storage_manager;
 use v_v8::v_common::module::veda_backend::Backend;
 use v_v8::v_common::onto::datatype::Lang;
 use v_v8::v_common::onto::individual::Individual;
 use v_v8::v_common::onto::individual2msgpack::to_msgpack;
-use v_v8::v_common::onto::onto::Onto;
+use v_v8::v_common::onto::onto_impl::Onto;
 use v_v8::v_common::search::common::FTQuery;
 use v_v8::v_common::storage::common::StorageMode;
 use v_v8::v_common::v_api::api_client::IndvOp;
@@ -240,8 +240,8 @@ fn add_to_queue(
         }
         new_indv.add_integer("cmd", cmd.to_i64());
         new_indv.add_integer("date", date);
-        new_indv.add_string("source_veda", source, Lang::NONE);
-        new_indv.add_string("target_veda", target, Lang::NONE);
+        new_indv.add_string("source_veda", source, Lang::none());
+        new_indv.add_string("target_veda", target, Lang::none());
         new_indv.add_bool("enable_scripts", enable_scripts);
 
         info!("export: cmd={}, uri={}, src={}, target={}, enable_scripts={}", cmd.as_string(), id, &source, &target, enable_scripts);
