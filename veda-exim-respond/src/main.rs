@@ -12,7 +12,7 @@ use serde_json::json;
 use serde_json::Value;
 use std::io;
 use std::io::ErrorKind;
-use v_common::module::module::{init_log_with_params, Module};
+use v_common::module::module_impl::{init_log_with_params, Module};
 use v_common::module::veda_backend::Backend;
 use v_common::onto::individual::{Individual, RawObj};
 use v_common::v_api::api_client::MStorageClient;
