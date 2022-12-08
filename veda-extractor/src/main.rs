@@ -111,7 +111,7 @@ fn listen_queue<'a>(js_runtime: &'a mut JsRuntime) -> Result<(), i32> {
         for el in args.iter() {
             if el.starts_with("--query") {
                 if let Some(i) = el.find('=') {
-                    let query = el.to_string().split_off(i + 1).replace("\'", "'");
+                    let query = el.to_string().split_off(i + 1).replace('\'', "'");
                     if let Err(e) = export_from_query(&query, &mut backend, &mut ctx) {
                         error!("fail execute query [{}], err={:?}", query, e);
                     }
@@ -169,7 +169,7 @@ fn prepare(backend: &mut Backend, ctx: &mut Context, queue_element: &mut Individ
     //    if date.is_none() {
     //        return Ok(());
     //    }
-    prepare_indv(backend, ctx, &id, cmd.unwrap(), Some(&mut prev_state), &mut new_state, &user_id, date.unwrap_or_default(), &queue_element.get_id())
+    prepare_indv(backend, ctx, &id, cmd.unwrap(), Some(&mut prev_state), &mut new_state, &user_id, date.unwrap_or_default(), queue_element.get_id())
 }
 
 fn prepare_indv(
@@ -231,7 +231,7 @@ fn add_to_queue(
     new_state_indv.parse_all();
 
     let mut raw: Vec<u8> = Vec::new();
-    if to_msgpack(&new_state_indv, &mut raw).is_ok() {
+    if to_msgpack(new_state_indv, &mut raw).is_ok() {
         let mut new_indv = Individual::default();
         new_indv.set_id(msg_id);
         new_indv.add_uri("uri", id);
@@ -267,9 +267,9 @@ fn export_from_query(query: &str, backend: &mut Backend, ctx: &mut Context) -> R
     let res = ctx.xr.query(ftq, &mut backend.storage);
     if res.result_code == ResultCode::Ok && res.count > 0 {
         for id in &res.result {
-            if let Some(mut indv) = backend.get_individual(id, &mut Individual::default()) {
+            if let Some(indv) = backend.get_individual(id, &mut Individual::default()) {
                 let msg_id = indv.get_id().to_string();
-                prepare_indv(backend, ctx, &indv.get_id().to_string(), IndvOp::Put, None, &mut indv, "", 0, &msg_id)?;
+                prepare_indv(backend, ctx, &indv.get_id().to_string(), IndvOp::Put, None, indv, "", 0, &msg_id)?;
             }
         }
     }

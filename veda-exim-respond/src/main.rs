@@ -25,7 +25,7 @@ use v_queue::record::ErrorQueue;
 async fn export_delta(web::Path(remote_node_id): web::Path<String>) -> io::Result<HttpResponse> {
     // this request changes from master
     // читаем элемент очереди, создаем обьект и отправляем на server
-    let consumer_name = format!("r_{}", remote_node_id.replace(":", "_"));
+    let consumer_name = format!("r_{}", remote_node_id.replace(':', "_"));
     let mut queue_consumer = Consumer::new("./data/out", &consumer_name, "extract").expect("!!!!!!!!! FAIL QUEUE");
 
     if let Err(e) = queue_consumer.queue.get_info_of_part(queue_consumer.id, true) {
@@ -53,14 +53,14 @@ async fn export_delta(web::Path(remote_node_id): web::Path<String>) -> io::Resul
                     } else {
                         error!("fail encode out message");
                     }
-                }
+                },
                 Err(e) => {
                     if e != ExImCode::Ok {
                         error!("fail create out message {:?}", e);
                     } else {
                         queue_consumer.commit();
                     }
-                }
+                },
             }
         }
     }
@@ -103,7 +103,7 @@ async fn main() -> std::io::Result<()> {
     if let Ok(t) = backend.get_sys_ticket_id() {
         sys_ticket = t;
     } else {
-        return Err(std::io::Error::new(ErrorKind::NotFound, format!("fail get system ticket")));
+        return Err(std::io::Error::new(ErrorKind::NotFound, "fail get system ticket"));
     }
 
     let mut node_id = get_db_id(&mut backend);
@@ -112,13 +112,13 @@ async fn main() -> std::io::Result<()> {
     }
 
     if node_id.is_none() {
-        return Err(std::io::Error::new(ErrorKind::NotFound, format!("fail create node_id")));
+        return Err(std::io::Error::new(ErrorKind::NotFound, "fail create node_id"));
     }
     let node_id = node_id.unwrap();
     info!("my node_id={}", node_id);
 
     let mut server_future = HttpServer::new(move || {
-        let json_cfg = web::JsonConfig::default().limit(5*1024*1024);
+        let json_cfg = web::JsonConfig::default().limit(5 * 1024 * 1024);
         App::new()
             .app_data(json_cfg)
             .wrap(middleware::Compress::default())

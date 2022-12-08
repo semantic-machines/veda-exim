@@ -31,7 +31,7 @@ use v_queue::record::*;
 
 const TRANSMIT_FAILED: i64 = 32;
 
-#[derive(Primitive, PartialEq, Debug, Clone, Serialize, Deserialize)]
+#[derive(Primitive, PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
 #[repr(i64)]
 pub enum ExImCode {
     Unknown = 0,
@@ -129,11 +129,11 @@ pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configurat
                 break;
             }
 
-            let mut queue_element = &mut Individual::new_raw(raw);
+            let queue_element = &mut Individual::new_raw(raw);
 
             let mut res = ExImCode::SendFailed;
             for attempt_count in 0..10 {
-                let msg = create_export_message(&mut queue_element, node_id);
+                let msg = create_export_message(queue_element, node_id);
 
                 match msg {
                     Ok(mut msg) => {
@@ -149,7 +149,7 @@ pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configurat
                             res = ExImCode::Ok;
                             break;
                         }
-                    }
+                    },
                     Err(e) => {
                         if e == ExImCode::Ok {
                             res = e;
@@ -158,7 +158,7 @@ pub fn send_changes_to_node(queue_consumer: &mut Consumer, resp_api: &Configurat
                         error!("fail create export message, err={:?}", e);
                         res = ExImCode::InvalidMessage;
                         break;
-                    }
+                    },
                 }
 
                 thread::sleep(time::Duration::from_millis(attempt_count * 100));
@@ -260,7 +260,7 @@ pub fn decode_message(src: &JSONValue) -> Result<Individual, Box<dyn Error>> {
                 if m.is_empty() {
                     return Ok(Individual::default());
                 }
-                let mut recv_indv = Individual::new_raw(RawObj::new(decode(&m)?));
+                let mut recv_indv = Individual::new_raw(RawObj::new(decode(m)?));
                 if parse_raw(&mut recv_indv).is_ok() {
                     return Ok(recv_indv);
                 }
@@ -374,10 +374,10 @@ pub fn processing_imported_message(my_node_id: &str, recv_msg: &mut Individual, 
                         } else {
                             info!("success create file {}", src_full_path);
                         }
-                    }
+                    },
                     Err(e) => {
                         error!("fail create file: {:?}", e);
-                    }
+                    },
                 }
                 indv.remove("v-s:fileData");
             }
@@ -393,11 +393,11 @@ pub fn processing_imported_message(my_node_id: &str, recv_msg: &mut Individual, 
             Ok(_) => {
                 info!("get from {}, success update, src={}, uri={}", source_veda, src, recv_msg.get_id());
                 return IOResult::new(recv_msg.get_id(), ExImCode::Ok);
-            }
+            },
             Err(e) => {
                 error!("fail update, uri={}, result_code={:?}", recv_msg.get_id(), e.result);
                 return IOResult::new(recv_msg.get_id(), ExImCode::FailUpdate);
-            }
+            },
         }
     }
 

@@ -3,10 +3,10 @@ use std::collections::HashSet;
 use std::sync::Mutex;
 use v_v8::callback::*;
 use v_v8::common::*;
-use v_v8::v8::{ContextScope, HandleScope, Local, Value};
 use v_v8::scripts_workplace::ScriptsWorkPlace;
 use v_v8::session_cache::CallbackSharedData;
 use v_v8::v8;
+use v_v8::v8::{ContextScope, HandleScope, Local, Value};
 use v_v8::v_common::ft_xapian::xapian_reader::XapianReader;
 use v_v8::v_common::module::veda_backend::Backend;
 use v_v8::v_common::onto::individual::Individual;
@@ -214,7 +214,7 @@ pub(crate) fn prepare_script(wp: &mut ScriptsWorkPlace<ScriptInfoContext>, ev_in
          } catch (e) { log_trace (e); } \
       })();";
 
-        let mut scr_inf: ScriptInfo<ScriptInfoContext> = ScriptInfo::new_with_src(&ev_indv.get_id(), &str_script);
+        let mut scr_inf: ScriptInfo<ScriptInfoContext> = ScriptInfo::new_with_src(ev_indv.get_id(), &str_script);
 
         scr_inf.context.prevent_by_type = HashVec::new(ev_indv.get_literals("v-s:preventByType").unwrap_or_default());
         scr_inf.context.trigger_by_uid = HashVec::new(ev_indv.get_literals("v-s:triggerByUid").unwrap_or_default());

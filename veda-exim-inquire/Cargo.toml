@@ -13,7 +13,7 @@ log = "0.4"
 
 v_queue = "=0.2.4"
 
-v_common = { package = "v-common", version = "=0.4.32" }
+v_common = { package = "v-common", version = "=0.4.35" }
 #v_common = { package = "v-common", path = "../../../v-common" }
 
 v_exim = { path = "../v-exim" }

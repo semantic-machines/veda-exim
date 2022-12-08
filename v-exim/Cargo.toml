@@ -20,6 +20,6 @@ base64 = "0.13.0"
 http = "=0.2.8"
 
 v_queue = "=0.2.4"
-v_common = { package = "v-common", version = "=0.4.32" }
+v_common = { package = "v-common", version = "=0.4.35" }
 #v_common = { package = "v-common", path = "../../v-common" }
 

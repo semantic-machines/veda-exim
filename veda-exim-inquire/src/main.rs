@@ -50,7 +50,7 @@ fn main() -> std::io::Result<()> {
 
     loop {
         for (remote_node_id, remote_node_addr) in &link_node_addresses {
-            let consumer_name = format!("i_{}", remote_node_id.replace(":", "_"));
+            let consumer_name = format!("i_{}", remote_node_id.replace(':', "_"));
             if let Ok(mut queue_consumer) = Consumer::new("./data/out", &consumer_name, "extract") {
                 let exim_resp_api = Configuration::new(remote_node_addr, "", "");
 
@@ -79,11 +79,11 @@ fn main() -> std::io::Result<()> {
                                     info!("get {} form node {}", recv_pack.get_id(), consumer_name);
                                 }
                             }
-                        }
+                        },
                         Err(e) => {
                             error!("fail recv message from {}, err={:?}", remote_node_addr, e);
                             break;
-                        }
+                        },
                     }
                 }
             }
